@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Literal
 
 class SimplePerceptron:
     def __init__(self, input_size: int, random_state: int = 42):
@@ -42,12 +43,16 @@ class TwoLayersPerceptron:
     def _sigmoid_deriv(self, x: np.ndarray):
         return x * (1 - x)
 
-    def predict(self, X: np.ndarray):
+    def predict(self, X: np.ndarray, type: Literal["class", "regression"] = "class"):
         z1 = np.dot(X, self.W1) + self.b1
         a1 = self._sigmoid(z1)
         z2 = np.dot(a1, self.W2) + self.b2
         output = self._sigmoid(z2)
-        return (output > 0.5).astype(int)
+
+        if type == "class":
+            return (output > 0.5).astype(int)
+        elif type == "regression":
+            return output
 
     def fit(self, X: np.ndarray, Y: np.ndarray, learning_rate: float = 0.01, epochs: int = 1000):
         for epoch in range(epochs):
