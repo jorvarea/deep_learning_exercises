@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix, classification_report
 import os
 
-#%% [markdown]
+# %% [markdown]
 # # 1. Carga y exploración de datos
 
 # %%
@@ -21,7 +21,7 @@ print(f"Etiquetas test:         {y_test.shape}")
 print(f"\nPrimeras 10 etiquetas:  {y_train[:10]}")
 print(f"Rango original:         [{x_train[0].min()}, {x_train[0].max()}]")
 
-#%% [markdown]
+# %% [markdown]
 # # 2. Preprocesamiento
 
 # %%
@@ -31,7 +31,7 @@ x_test = x_test / 255.0
 
 print(f"Rango normalizado: [{x_train[0].min():.2f}, {x_train[0].max():.2f}]")
 
-#%% [markdown]
+# %% [markdown]
 # # 3. Configuraciones a evaluar
 
 # %%
@@ -94,53 +94,58 @@ configurations = [
     },
 ]
 
-#%% [markdown]
+# %% [markdown]
 # # 4. Función para crear modelos
 
 # %%
+
+
 def create_model(layers=[128]):
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Flatten(input_shape=(28, 28)))
-    
+
     for neurons in layers:
         model.add(tf.keras.layers.Dense(neurons, activation='relu'))
-    
+
     model.add(tf.keras.layers.Dense(10, activation='softmax'))
-    
+
     return model
 
-#%% [markdown]
+# %% [markdown]
 # # 5. Función de evaluación completa
 
 # %%
-def evaluate_model(model, x_train, y_train, x_test, y_test, config_name):
+
+
+def evaluate_model(model: tf.keras.models.Sequential, x_test: np.ndarray, y_test: np.ndarray) -> dict:
     results = {}
-    
+
     # Accuracy y loss en test
-    test_loss, test_acc = model.evaluate(x_test, y_test, verbose=0)
-    print(f"Loss: {test_loss:.4f}, Accuracy: {test_acc:.4f}")
-    
+    loss, accuracy = model.evaluate(x_test, y_test, verbose=0)
+    print(f"Loss: {loss:.4f}, Accuracy: {accuracy:.4f}")
+
     # Predicciones y número de errores
-    y_test_pred = np.argmax(model.predict(x_test, verbose=0), axis=1)
-    
-    test_errors = np.sum(y_test_pred != y_test)
-    
-    print(f"Errors:  {test_errors}/{len(y_test)} ({test_errors/len(y_test)*100:.2f}%)")
-    
+    y_pred = np.argmax(model.predict(x_test, verbose=0), axis=1)
+
+    errors = np.sum(y_pred != y_test)
+
+    print(f"Errors:  {errors}/{len(y_test)} ({errors/len(y_test)*100:.2f}%)")
+
     # Matrices de confusión
-    test_cm = confusion_matrix(y_test, y_test_pred)
-    
+    cm = confusion_matrix(y_test, y_pred)
+
     # Guardar resultados
-    results['loss'] = test_loss
-    results['accuracy'] = test_acc
-    results['errors'] = test_errors
-    results['cm'] = test_cm
-    results['predictions'] = y_test_pred
-    
+    results['loss'] = loss
+    results['accuracy'] = accuracy
+    results['errors'] = errors
+    results['cm'] = cm
+    results['predictions'] = y_pred
+
     return results
 
-#%% [markdown]
+# %% [markdown]
 # # 6. Entrenamiento de todas las configuraciones
+
 
 # %%
 epochs = 10
@@ -153,10 +158,10 @@ for config in configurations:
     print(f"    Capas: {config['layers']}")
     print(f"    Optimizer: {config['optimizer']} (lr={config['lr']})")
     print(f"    Batch size: {config['batch_size']}")
-    
+
     # Crear modelo
     model = create_model(layers=config['layers'])
-    
+
     # Compilar con configuración específica
     if config['optimizer'] == 'sgd':
         optimizer = tf.keras.optimizers.SGD(learning_rate=config['lr'])
@@ -166,13 +171,13 @@ for config in configurations:
         optimizer = tf.keras.optimizers.RMSprop(learning_rate=config['lr'])
     elif config['optimizer'] == 'adagrad':
         optimizer = tf.keras.optimizers.Adagrad(learning_rate=config['lr'])
-    
+
     model.compile(
         optimizer=optimizer,
         loss='sparse_categorical_crossentropy',
         metrics=['accuracy']
     )
-    
+
     # Entrenar y medir tiempo
     start_time = time.time()
     history = model.fit(
@@ -183,19 +188,19 @@ for config in configurations:
         verbose=1
     )
     elapsed_time = time.time() - start_time
-    
+
     print(f"\n⏱️  Tiempo de entrenamiento: {elapsed_time:.2f} segundos")
-    
+
     # Evaluar modelo
-    results = evaluate_model(model, x_train, y_train, x_test, y_test, name)
+    results = evaluate_model(model, x_test, y_test)
     results['training_time'] = elapsed_time
     results['config'] = config
-    
+
     # Guardar
     all_results[name] = results
     all_histories[name] = history
 
-#%% [markdown]
+# %% [markdown]
 # # 7. Tabla comparativa de resultados
 
 # %%
@@ -229,7 +234,7 @@ print(f"   Test Accuracy: {best_config[1]['accuracy']:.4f}")
 print(f"   Test Errors: {best_config[1]['errors']}")
 print(f"   Training Time: {best_config[1]['training_time']:.2f}s")
 
-#%% [markdown]
+# %% [markdown]
 # # 8. Visualizaciones comparativas
 
 # %%
@@ -295,60 +300,21 @@ plt.tight_layout()
 plt.savefig('results/metrics_comparison.png', dpi=150, bbox_inches='tight')
 plt.show()
 
-#%% [markdown]
+# %% [markdown]
 # # 9. Matrices de confusión
 
 # %%
 # Visualizar matrices de confusión para cada configuración
 for name, results in all_results.items():
-    fig, axes = plt.subplots(1, 1, figsize=(14, 6))
-    
+    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
     # Test confusion matrix
     sns.heatmap(results['cm'], annot=True, fmt='d', cmap='Oranges',
-                ax=axes[1], cbar_kws={'label': 'Cantidad'})
-    axes[1].set_xlabel('Predicción', fontsize=11)
-    axes[1].set_ylabel('Etiqueta Verdadera', fontsize=11)
-    axes[1].set_title(f'Matriz de Confusión\n{name}', fontsize=12, fontweight='bold')
-    
+                ax=ax, cbar_kws={'label': 'Cantidad'})
+    ax.set_xlabel('Predicción', fontsize=11)
+    ax.set_ylabel('Etiqueta Verdadera', fontsize=11)
+    ax.set_title(f'Matriz de Confusión\n{name}', fontsize=12, fontweight='bold')
+
     plt.tight_layout()
     plt.savefig(f'results/confusion_matrix_{name}.png', dpi=150, bbox_inches='tight')
     plt.show()
-
-#%% [markdown]
-# # 10. Análisis detallado del mejor modelo
-
-# %%
-best_name = best_config[0]
-best_results = best_config[1]
-
-print(classification_report(y_test, best_results['predictions'],
-                           target_names=[str(i) for i in range(10)]))
-
-#%% [markdown]
-# # 11. Conclusiones
-
-# %%
-
-print(f"\n1. MEJOR OPTIMIZADOR:")
-optimizer_accs = {}
-for name, results in all_results.items():
-    opt = results['config']['optimizer']
-    if opt not in optimizer_accs:
-        optimizer_accs[opt] = []
-    optimizer_accs[opt].append(results['accuracy'])
-
-for opt, accs in optimizer_accs.items():
-    print(f"   {opt}: Accuracy promedio = {np.mean(accs):.4f} (±{np.std(accs):.4f})")
-
-best_optimizer = max(optimizer_accs.items(), key=lambda x: np.mean(x[1]))
-print(f"\n   ⭐ Mejor optimizador: {best_optimizer[0]}")
-
-print(f"\n2. IMPACTO DEL BATCH SIZE:")
-for name, results in all_results.items():
-    print(f"   {name} (bs={results['config']['batch_size']}): "
-          f"Test Acc={results['accuracy']:.4f}, Time={results['training_time']:.2f}s")
-
-print(f"\n3. TRADE-OFF ACCURACY vs TIEMPO:")
-for name in sorted(all_results.keys(), key=lambda x: all_results[x]['training_time']):
-    results = all_results[name]
-    print(f"   {name}: {results['accuracy']:.4f} accuracy en {results['training_time']:.2f}s")
