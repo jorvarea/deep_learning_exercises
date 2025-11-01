@@ -4,3 +4,4 @@ venv/
 *.pth
 data/
 .DS_Store
+results/
