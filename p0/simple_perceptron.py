@@ -3,7 +3,7 @@ import numpy as np
 class SimplePerceptron:
     def __init__(self, input_size: int, random_state: int = 42):
         np.random.seed(random_state)
-        self.weights = np.random.normal(loc=0.0, scale=0.1, size=input_size)
+        self.weights = np.random.randn(input_size)
         self.bias = 0.0
 
     def threshold_function(self, value: float):
@@ -13,31 +13,24 @@ class SimplePerceptron:
         linear_product = np.dot(x, self.weights) + self.bias
         return self.threshold_function(linear_product)
     
-    def fit(self, X: np.ndarray, Y: np.ndarray, learning_rate: float = 0.01, epochs: int = 1000, target_error: float = 0.0):
+    def fit(self, X: np.ndarray, Y: np.ndarray, learning_rate: float = 0.01, epochs: int = 100):
         epoch = 0
-        average_error = np.inf
-        while average_error > target_error:
-            print("------------------")
-            print(f"Epoch: {epoch}")
-            print("------------------")
+        while epoch < epochs:
             total_error = 0.0
             for x_i, y_i in zip(X, Y):
-                output = self.predict(x_i)
+                output = np.dot(x_i, self.weights) + self.bias
                 error = y_i - output
                 delta_weights = learning_rate * error * x_i
                 self.weights += delta_weights
                 self.bias += learning_rate * error
                 total_error += abs(error)
-
-            average_error = total_error / len(Y)
-            print(f"Error: {average_error}")
+            
+            print(f"Epoch: {epoch},  Error: {total_error}", flush=True)
             epoch += 1
-            if epoch >= epochs:
-                print(f"Reached max epochs ({epochs})")
-                break
 
 class TwoLayersPerceptron:
-    def __init__(self, input_size: int, hidden_size: int, output_size: int):
+    def __init__(self, input_size: int, hidden_size: int, output_size: int, random_state: int = 42):
+        np.random.seed(random_state)
         self.W1 = np.random.randn(input_size, hidden_size)    # Input to hidden
         self.b1 = np.zeros((1, hidden_size))
         self.W2 = np.random.randn(hidden_size, output_size)   # Hidden to output
@@ -74,8 +67,7 @@ class TwoLayersPerceptron:
             self.W1 += X.T.dot(d_hidden) * learning_rate
             self.b1 += np.sum(d_hidden, axis=0, keepdims=True) * learning_rate
 
-            print(f"Epoch: {epoch}")
-            print(f"Error: {error}")
+            print(f"Epoch: {epoch}, Error: {error}", flush=True)
 
 
 if __name__ == "__main__":
@@ -85,8 +77,8 @@ if __name__ == "__main__":
     perceptron.fit(X, Y, epochs=10)
     print(f"Final weights: {perceptron.weights}, bias: {perceptron.bias}")
 
-    print(perceptron.predict(np.array([0, 0])))
-    print(perceptron.predict(np.array([0, 1])))
-    print(perceptron.predict(np.array([1, 0])))
-    print(perceptron.predict(np.array([1, 1])))
+    print("Output: ", perceptron.predict(np.array([0, 0])), "Expected: 1")
+    print("Output: ", perceptron.predict(np.array([0, 1])), "Expected: 0")
+    print("Output: ", perceptron.predict(np.array([1, 0])), "Expected: 0")
+    print("Output: ", perceptron.predict(np.array([1, 1])), "Expected: 1")
     
