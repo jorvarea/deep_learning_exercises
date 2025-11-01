@@ -1,0 +1,6 @@
+venv/
+*.parquet
+*.ipynb
+*.csv
+*.pth
+data/
