@@ -3,7 +3,7 @@ import numpy as np
 class SimplePerceptron:
     def __init__(self, input_size: int, random_state: int = 42):
         np.random.seed(random_state)
-        self.weights = np.random.normal(loc=0.0, scale=0.01, size=input_size)
+        self.weights = np.random.normal(loc=0.0, scale=0.1, size=input_size)
         self.bias = 0.0
 
     def threshold_function(self, value: float):

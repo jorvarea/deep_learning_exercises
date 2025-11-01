@@ -68,11 +68,11 @@ class Discriminator(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(img_dim, 512),
             nn.LeakyReLU(0.2),
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
 
             nn.Linear(512, 256),
             nn.LeakyReLU(0.2),
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
             
             nn.Linear(256, 1),
             nn.Sigmoid()
@@ -205,7 +205,8 @@ def train_disc(discriminator, generator, real, criterion, optimizer_disc, z_dim,
     label_real = torch.ones(batch_size, 1, device=device) * 0.9
     label_fake = torch.zeros(batch_size, 1, device=device)
 
-    noise_strength = 0.1 * np.exp(-2.0 * curr_epoch / total_epochs)
+    progress = curr_epoch / total_epochs
+    noise_strength = 0.15 * ((1 - progress) ** 3)
     real_noisy = real + noise_strength * torch.randn_like(real)
     
     noise = torch.randn(batch_size, z_dim, device=device)
