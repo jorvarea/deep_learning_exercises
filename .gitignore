@@ -4,3 +4,4 @@ venv/
 *.csv
 *.pth
 data/
+.DS_Store
