@@ -5,7 +5,7 @@ import time
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix
 import os
 
 # %% [markdown]
