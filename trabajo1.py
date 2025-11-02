@@ -26,6 +26,9 @@ df_p3_train = pd.read_csv('p3/results/training_metrics.csv')
 df_p3_test = pd.read_csv('p3/results/test_metrics.csv')
 df_p4_train = pd.read_csv('p4/results/training_metrics.csv')
 df_p4_test = pd.read_csv('p4/results/test_metrics.csv')
+df_p2_par = pd.read_csv('p2_par/results/comparison_table.csv')
+df_p3_par_train = pd.read_csv('p3_par/results/training_metrics.csv')
+df_p3_par_test = pd.read_csv('p3_par/results/test_metrics.csv')
 
 # %% [markdown]
 # ## 1. Resumen de mejores resultados por práctica
@@ -346,7 +349,7 @@ plt.show()
 # # Resultados Práctica 5 - GAN
 
 # %% [markdown]
-# ## Arquitectura del Generador y Discriminador
+# ## 1. Arquitectura del Generador y Discriminador
 #
 # ### **Generador** (Ruido → Imagen)
 # ```
@@ -377,7 +380,7 @@ plt.show()
 # ```
 
 # %% [markdown]
-# ## Evolución del Ruido Aplicado al Discriminador
+# ## 2. Evolución del Ruido Aplicado al Discriminador
 
 # %%
 # Función de ruido: noise_strength = 0.15 * ((1 - progress) ** 3)
@@ -445,7 +448,7 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ## Conclusiones
+# ## 3. Conclusiones
 
 # Para la práctica 5, tras muchas pruebas con diferentes arquitecturas e hiperparámetros, la configuración que mejor funciona es la de un generador con 3 capas ocultas con Batch Normalization y ReLU como función de activación, junto con un discriminador con dos capas ocultas con LeakyReLU y Dropout de 0.3.
 #
@@ -456,3 +459,101 @@ plt.show()
 # Inicialmente probamos también a usar diferentes tasas de aprendizaje para generador y discriminador, o hacer que el generador actualizase sus gradientes 2 o tres veces por batch para evitar que el discriminador se hiciese demasiado bueno, pero en la configuración final no ha sido necesario. Lo que sí fue importante fue modificar los parámetros beta del optimizador Adam, para no darle tanto peso al momento y permitir a ambas redes adaptarse mejor a los cambios de la otra (beta1=0.5, beta2=0.999)
 
 # Entrenamos la red un total de 120 épocas, pero el mejor valor del FID (Fréchet Inception Distance) se alcanza a las 90 épocas. Hay que decir que el valor que se alcanza, 117.82, no es bueno, pero visualmente las imágenes que generamos tienen bastante similitud con las del dataset (aunque no siempre).
+
+# %% [markdown]
+# # Comparación: Clasificación 10 Dígitos vs Par/Impar
+
+# %% [markdown]
+# En este apartado comparamos dos enfoques diferentes sobre el mismo dataset MNIST:
+# - **P2 - 10 Dígitos**: Clasificación multiclase (0-9) con sparse_categorical_crossentropy
+# - **P2 - Par/Impar**: Clasificación binaria (par vs impar) con binary_crossentropy
+#
+# Ambos modelos utilizan **exactamente la misma arquitectura e hiperparámetros**:
+# - 1 capa oculta con 512 neuronas + ReLU
+# - 15 épocas
+# - Batch size: 256
+# - Learning rate: 0.001
+# - Validation split: 0.1
+# - Optimizer: Adam
+
+# %% [markdown]
+# ## 1. Comparación de resultados
+
+# %%
+best_p2_par = df_p2_par.iloc[0]
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+models_comparison = ['P2 - 10 Dígitos', 'P2 - Par/Impar']
+colors_comparison = ['#2ecc71', '#e74c3c']
+
+# Test Accuracy
+test_accs_comparison = [98.17, 98.90]  # P2: 0.9817, Par/Impar: 0.9890
+bars1 = axes[0].bar(models_comparison, test_accs_comparison, color=colors_comparison,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[0].set_ylabel('Accuracy (%)', fontsize=13, fontweight='bold')
+axes[0].set_title('Test Accuracy', fontsize=14, fontweight='bold', pad=15)
+axes[0].set_ylim([97, 100])
+axes[0].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, acc in zip(bars1, test_accs_comparison):
+    axes[0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                 f'{acc:.2f}%', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+# Test Loss
+test_losses_comparison = [0.0607, 0.0430]  # P2: 0.0607, Par/Impar: 0.0430
+bars2 = axes[1].bar(models_comparison, test_losses_comparison, color=colors_comparison,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[1].set_ylabel('Loss', fontsize=13, fontweight='bold')
+axes[1].set_title('Test Loss', fontsize=14, fontweight='bold', pad=15)
+axes[1].set_ylim([0, 0.08])
+axes[1].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, loss in zip(bars2, test_losses_comparison):
+    axes[1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.002,
+                 f'{loss:.4f}', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+# Test Errors
+test_errors_comparison = [183, 110]  # P2: 183, Par/Impar: 110
+bars3 = axes[2].bar(models_comparison, test_errors_comparison, color=colors_comparison,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[2].set_ylabel('Número de Errores', fontsize=13, fontweight='bold')
+axes[2].set_title('Errores en Test Set (de 10,000)', fontsize=14, fontweight='bold', pad=15)
+axes[2].set_ylim([0, 200])
+axes[2].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, err in zip(bars3, test_errors_comparison):
+    axes[2].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
+                 f'{err}', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+plt.suptitle('Comparación: Clasificación Multiclase (10 dígitos) vs Binaria (Par/Impar)',
+             fontsize=15, fontweight='bold', y=1.02)
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 2. Matrices de Confusión
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(18, 7))
+
+# Matriz de confusión P2 - 10 Dígitos
+img_p2 = Image.open('trabajo_images/cm_test_p2.png')
+axes[0].imshow(img_p2)
+axes[0].axis('off')
+axes[0].set_title('P2 - Clasificación 10 Dígitos (0-9)', fontsize=14, fontweight='bold', pad=10)
+
+# Matriz de confusión P2_par - Par/Impar
+img_p2_par = Image.open('trabajo_images/cm_test_p2_par.png')
+axes[1].imshow(img_p2_par)
+axes[1].axis('off')
+axes[1].set_title('P2 - Clasificación Par/Impar', fontsize=14, fontweight='bold', pad=10)
+
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 3. Conclusiones
+
+# Comparamos los resultados de aplicar la misma arquitectura e hiperparámetros sobre los problemas de clasificación multiclase y clasificación en par/impar sobre el MNIST. La configuración elegida de hiperparámetros es aquella que dio mejores resultados en la práctica 2.
+#
+# Observando los resultados vemos que la precisión del clasificador par/impar es superior a la del clasificador de 10 dígitos. Esta diferencia es del 0.73% y aunque no parezca mucho, cuando tenemos precisiones tan altas, una diferencia así es notable. También notamos que la pérdida del clasificador par/impar es menor, en la misma línea que la precisión.
+#
+# Estos resultados se deben a que al distinguir únicamente entre pares e impares, la red no necesita diferenciar los números dentro de cada grupo. Si nos fijamos en la matriz de confusión del clasificador de 10 dígitos, vemos por ejemplo que el 2 y el 8 se confunden con frecuencia, en relación a fallos entre otros números, ocurriendo hasta en 11 ocasiones que se predice un 8 cuando en realidad es un 2. Al no tener que distinguir dentro de los pares, estos errores desaparecen y por eso la precisión es mayor.
