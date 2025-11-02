@@ -184,7 +184,7 @@ def visualize_conv_filters_compact(model, epoch):
         n_filters = filters.shape[0]
         n_channels = filters.shape[1]
         
-        n_show = min(32, n_filters)
+        n_show = min(16, n_filters)
         for i in range(n_show):
             ax = axes[layer_idx, i]
             
