@@ -184,7 +184,7 @@ def visualize_conv_filters_compact(model, epoch):
         n_filters = filters.shape[0]
         n_channels = filters.shape[1]
         
-        n_show = min(16, n_filters)
+        n_show = min(32, n_filters)
         for i in range(n_show):
             ax = axes[layer_idx, i]
             
@@ -318,21 +318,13 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs} - "
           f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
 
-    if (epoch + 1) % 5 == 0:
+    if (epoch + 1) % 5 == 0 or epoch == num_epochs - 1 or epoch == 0:
         test_metrics = evaluate_model(model, test_loader, criterion, device, epoch)
         test_results.append(test_metrics)
 
         print(f"\n🔍 Visualizando capas convolucionales...")
         visualize_conv_filters_compact(model, epoch)
         visualize_feature_maps_compact(model, test_loader, device, epoch, n_images=2)
-
-if num_epochs % 5 != 0:
-    test_metrics = evaluate_model(model, test_loader, criterion, device, num_epochs - 1)
-    test_results.append(test_metrics)
-
-    print(f"\n🔍 Visualizando capas convolucionales...")
-    visualize_conv_filters_compact(model, num_epochs - 1)
-    visualize_feature_maps_compact(model, test_loader, device, num_epochs - 1, n_images=2)
 
 print("\n" + "="*60)
 print("✅ TRAINING COMPLETED")
