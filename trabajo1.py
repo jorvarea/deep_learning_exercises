@@ -557,3 +557,98 @@ plt.show()
 # Observando los resultados vemos que la precisión del clasificador par/impar es superior a la del clasificador de 10 dígitos. Esta diferencia es del 0.73% y aunque no parezca mucho, cuando tenemos precisiones tan altas, una diferencia así es notable. También notamos que la pérdida del clasificador par/impar es menor, en la misma línea que la precisión.
 #
 # Estos resultados se deben a que al distinguir únicamente entre pares e impares, la red no necesita diferenciar los números dentro de cada grupo. Si nos fijamos en la matriz de confusión del clasificador de 10 dígitos, vemos por ejemplo que el 2 y el 8 se confunden con frecuencia, en relación a fallos entre otros números, ocurriendo hasta en 11 ocasiones que se predice un 8 cuando en realidad es un 2. Al no tener que distinguir dentro de los pares, estos errores desaparecen y por eso la precisión es mayor.
+
+# %% [markdown]
+# # Comparación: Red Densa vs CNN para Clasificación Par/Impar
+
+# %% [markdown]
+# En este apartado comparamos dos enfoques diferentes para clasificar dígitos MNIST en pares e impares:
+# - **P2 - Red Densa Par/Impar**: Red neuronal simple (1 capa oculta, 512 neuronas, 15 épocas)
+# - **P3 - CNN Par/Impar**: CNN con capas convolucionales **congeladas** del modelo preentrenado en 10 dígitos + nueva capa FC (15 épocas)
+#
+# **Transfer Learning**: La CNN reutiliza las capas convolucionales ya entrenadas para extraer características de los dígitos MNIST.
+
+# %% [markdown]
+# ## 1. Comparación de resultados
+
+# %%
+best_p2_par = df_p2_par.iloc[0]
+best_p3_par = df_p3_par_test.loc[df_p3_par_test['accuracy'].astype(float).idxmax()]
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+models_par_comparison = ['P2 - Red Densa\nPar/Impar', 'P3 - CNN\nPar/Impar (TL)']
+colors_par_comparison = ['#e74c3c', '#9b59b6']
+
+# Test Accuracy (P2: 98.90%, P3: del CSV)
+test_accs_par = [98.90, best_p3_par['accuracy']]
+bars1 = axes[0].bar(models_par_comparison, test_accs_par, color=colors_par_comparison,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[0].set_ylabel('Accuracy (%)', fontsize=13, fontweight='bold')
+axes[0].set_title('Test Accuracy', fontsize=14, fontweight='bold', pad=15)
+axes[0].set_ylim([97, 100])
+axes[0].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, acc in zip(bars1, test_accs_par):
+    axes[0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                 f'{acc:.2f}%', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+# Test Loss (P2: 0.0430, P3: del CSV)
+test_losses_par = [0.0430, best_p3_par['loss']]
+bars2 = axes[1].bar(models_par_comparison, test_losses_par, color=colors_par_comparison,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[1].set_ylabel('Loss', fontsize=13, fontweight='bold')
+axes[1].set_title('Test Loss', fontsize=14, fontweight='bold', pad=15)
+axes[1].set_ylim([0, 0.08])
+axes[1].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, loss in zip(bars2, test_losses_par):
+    axes[1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.002,
+                 f'{loss:.4f}', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+# Test Errors (P2: 110, P3: calculado del accuracy)
+test_errors_par = [110, int(10000 * (1 - best_p3_par['accuracy']/100))]
+bars3 = axes[2].bar(models_par_comparison, test_errors_par, color=colors_par_comparison,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[2].set_ylabel('Número de Errores', fontsize=13, fontweight='bold')
+axes[2].set_title('Errores en Test Set (de 10,000)', fontsize=14, fontweight='bold', pad=15)
+axes[2].set_ylim([0, 150])
+axes[2].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, err in zip(bars3, test_errors_par):
+    axes[2].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3,
+                 f'{err}', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+plt.suptitle('Comparación: Red Densa vs CNN para Clasificación Par/Impar',
+             fontsize=15, fontweight='bold', y=1.02)
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 2. Matrices de Confusión
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(18, 7))
+
+# Matriz de confusión P2_par - Red Densa
+img_p2_par = Image.open('trabajo_images/cm_test_p2_par.png')
+axes[0].imshow(img_p2_par)
+axes[0].axis('off')
+axes[0].set_title('P2 - Red Densa Par/Impar', fontsize=14, fontweight='bold', pad=10)
+
+# Matriz de confusión P3_par - CNN Transfer Learning
+img_p3_par = Image.open('trabajo_images/cm_test_p3_par.png')
+axes[1].imshow(img_p3_par)
+axes[1].axis('off')
+axes[1].set_title('P3 - CNN Par/Impar (Transfer Learning)', fontsize=14, fontweight='bold', pad=10)
+
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 3. Conclusiones
+
+# Los resultados muestran que para el problema de clasificación de dígitos pares e impares, el rendimiento del clasificador con una única capa oculta de 512 neuronas y la red convolucional pre-entrenada y finetuneada para la clasificación binaria son iguales. La diferencia en precisión de uno y otro modelo es de 0.01%, siendo el mayor la red densa, aunque teniendo ligeramente menor pérdida la CNN. 
+#
+# Las matrices de confusión muestran el mismo resultado, siendo prácticamente iguales.
+#
+# En este caso, nos podríamos haber ahorrado usar la red convolucional, más pesada, en favor de la red densa, ya que en términos de precisión no habría diferencia, y el entrenamiento es mucho más rápido.
+
+
