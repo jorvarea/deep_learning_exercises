@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import time
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import os
@@ -311,12 +312,15 @@ train_accs = []
 test_results = []
 
 for epoch in range(num_epochs):
+    start_time = time.time()
     train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, device)
     train_losses.append(train_loss)
     train_accs.append(train_acc)
-
+    end_time = time.time()
+    
     print(f"Epoch {epoch+1}/{num_epochs} - "
-          f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%")
+          f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%,"
+          f" Time: {end_time - start_time:.2f}s")
 
     if (epoch + 1) % 5 == 0 or epoch == num_epochs - 1 or epoch == 0:
         test_metrics = evaluate_model(model, test_loader, criterion, device, epoch)
