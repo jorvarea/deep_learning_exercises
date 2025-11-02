@@ -97,7 +97,7 @@ class Discriminator(nn.Module):
         logits = self.classifier(x)  # [batch, 2]
         probs = torch.softmax(logits, dim=1)  # [batch, 2]
         # Retornar la probabilidad de la clase objetivo
-        return probs[:, self.target_class].unsqueeze(1)  # [batch, 1]
+        return probs[:, self.target_class].unsqueeze(1)  # [batch, 1] en rango [0, 1]
 
 # %% [markdown]
 # # Define functions to evaluate the models during training
@@ -122,7 +122,7 @@ def generate_and_plot_images(generator, fixed_noise, epoch):
         plt.show()
 
 
-def evaluate_on_test_set(generator, discriminator, test_loader, criterion, z_dim, device):
+def evaluate_on_test_set(generator, discriminator, test_loader, criterion, z_dim, device, target_class):
     generator.eval()
     discriminator.eval()
 
@@ -131,25 +131,23 @@ def evaluate_on_test_set(generator, discriminator, test_loader, criterion, z_dim
     test_batches = 0
 
     with torch.no_grad():
-        for real_test, _ in test_loader:
+        for real_test, labels_test in test_loader:
             real_test = real_test.view(-1, 28*28).to(device)
+            labels_odd_even = (labels_test % 2).float().unsqueeze(1).to(device)
             batch_size_test = real_test.size(0)
 
-            label_real_test = torch.ones(batch_size_test, 1, device=device)
-            label_fake_test = torch.zeros(batch_size_test, 1, device=device)
+            # Discriminator loss on real images
+            labels_target = (labels_odd_even == float(target_class)).float()
+            loss_disc = criterion(discriminator(real_test), labels_target)
 
             # Generate fake images
             noise_test = torch.randn(batch_size_test, z_dim, device=device)
             fake_test = generator(noise_test)
 
-            # Calculate Discriminator loss
-            loss_disc_real = criterion(discriminator(real_test), label_real_test)
-            loss_disc_fake = criterion(discriminator(fake_test), label_fake_test)
-            loss_disc = (loss_disc_real + loss_disc_fake) / 2
-
-            # Calculate Generator loss
-            output = discriminator(fake_test)
-            loss_gen = criterion(output, label_real_test)
+            # Generator loss: quiere que sus imágenes sean clasificadas como target_class
+            disc_output_fake = discriminator(fake_test)
+            target_labels = torch.full((batch_size_test, 1), target_class, dtype=torch.float32, device=device)
+            loss_gen = criterion(disc_output_fake, target_labels)
 
             test_loss_disc += loss_disc.item()
             test_loss_gen += loss_gen.item()
@@ -171,29 +169,29 @@ def verify_classifier(classifier, test_loader, device, n_samples=10):
     test_images, test_labels = next(iter(test_loader))
     test_images = test_images[:n_samples].to(device)
     test_labels = test_labels[:n_samples].to(device)
-    test_labels_par_impar = test_labels % 2
+    test_labels_even_odd = test_labels % 2
 
     with torch.no_grad():
         outputs = classifier(test_images.view(-1, 28*28))
         _, predicted = torch.max(outputs, 1)
 
-    correct = (predicted == test_labels_par_impar).sum().item()
+    correct = (predicted == test_labels_even_odd).sum().item()
 
     print(f"  Predicciones: {predicted.cpu().numpy()}")
-    print(f"  Etiquetas reales (par/impar): {test_labels_par_impar.cpu().numpy()}")
+    print(f"  Etiquetas reales (par/impar): {test_labels_even_odd.cpu().numpy()}")
     print(f"  Aciertos: {correct}/{n_samples}")
     print(f"✅ Clasificador verificado (accuracy: {100*correct/n_samples:.1f}%)\n")
 
     return correct / n_samples
 
 
-def evaluate_gan(generator, discriminator, test_loader, criterion, fixed_noise, z_dim, epoch, device):
+def evaluate_gan(generator, discriminator, test_loader, criterion, fixed_noise, z_dim, epoch, device, target_class):
     print(f"\n{'='*60}")
     print(f"📊 Evaluating at Epoch {epoch}")
     print(f"{'='*60}")
 
     generate_and_plot_images(generator, fixed_noise, epoch)
-    test_metrics = evaluate_on_test_set(generator, discriminator, test_loader, criterion, z_dim, device)
+    test_metrics = evaluate_on_test_set(generator, discriminator, test_loader, criterion, z_dim, device, target_class)
 
     print(f"\n📈 Test Set Evaluation:")
     print(f"  • Discriminator loss: {test_metrics['loss_disc']:.4f}")
@@ -208,20 +206,15 @@ def evaluate_gan(generator, discriminator, test_loader, criterion, fixed_noise, 
 # %%
 
 
-def train_disc(discriminator, generator, real, criterion, optimizer_disc, z_dim, device):
+def train_disc(discriminator, generator, real, labels_even_odd, criterion, optimizer_disc, z_dim, device, target_class):
     batch_size = real.size(0)
 
-    label_real = torch.ones(batch_size, 1, device=device)
-    label_fake = torch.zeros(batch_size, 1, device=device)
+    # 1 si la imagen pertenece a la clase objetivo (target_class), 0 en otro caso
+    real_labels = (labels_even_odd == target_class).float().unsqueeze(1)
+    loss_disc_real = criterion(discriminator(real), real_labels)
 
-    noise = torch.randn(batch_size, z_dim, device=device)
-    noise = torch.clamp(noise, -2.0, 2.0)
-    fake = generator(noise)
-
-    # Entrenar discriminador
-    loss_disc_real = criterion(discriminator(real), label_real)
-    loss_disc_fake = criterion(discriminator(fake.detach()), label_fake)
-    loss_disc = (loss_disc_real + loss_disc_fake) / 2
+    # NO entrenamos el discriminador con imágenes generadas
+    loss_disc = loss_disc_real
 
     optimizer_disc.zero_grad()
     loss_disc.backward()
@@ -230,16 +223,17 @@ def train_disc(discriminator, generator, real, criterion, optimizer_disc, z_dim,
     return loss_disc.item()
 
 
-def train_gen(generator, discriminator, real, criterion, optimizer_gen, z_dim, device):
-    batch_size = real.size(0)
-    label_real = torch.ones(batch_size, 1, device=device)
+def train_gen(generator, discriminator, criterion, optimizer_gen, z_dim, device, target_class):
+    batch_size = 128
 
     noise = torch.randn(batch_size, z_dim, device=device)
     noise = torch.clamp(noise, -2.0, 2.0)
     fake = generator(noise)
 
+    # El generador quiere que el discriminador clasifique sus imágenes como target_class
+    target_labels = torch.full((batch_size, 1), target_class, dtype=torch.float32, device=device)
     output = discriminator(fake)
-    loss_gen = criterion(output, label_real)
+    loss_gen = criterion(output, target_labels)
 
     optimizer_gen.zero_grad()
     loss_gen.backward()
@@ -286,21 +280,8 @@ optimizer_disc = optim.Adam(discriminator.parameters(), lr=lr_disc, betas=(0.5, 
 fixed_noise = torch.randn(16, z_dim, device=device)
 fixed_noise = torch.clamp(fixed_noise, -2.0, 2.0)
 
-# Verificar que los modelos cargados funcionan correctamente
-print("\n" + "="*60)
-print("🔍 VERIFICACIÓN DE MODELOS PREENTRENADOS")
-print("="*60)
 
-# 1. Verificar generador
-print("\n🎨 1. Generador - Imágenes iniciales:")
-generate_and_plot_images(generator, fixed_noise, 0)
-
-# 2. Verificar clasificador
-print("🧠 2. Clasificador Par/Impar:")
-verify_classifier(classifier_par_impar, test_loader, device, n_samples=10)
-
-
-num_epochs = 120
+num_epochs = 50
 n_gen_iterations = 1
 
 print(f"🎯 Objetivo: Generar dígitos {'PARES' if target_class == 0 else 'IMPARES'}")
@@ -321,17 +302,19 @@ for epoch in range(num_epochs):
     epoch_loss_g = 0
     epoch_loss_d = 0
     num_batches = 0
-    for real, _ in dataloader:
+    for real, labels in dataloader:
         real = real.view(-1, 28*28).to(device)
+        labels_par_impar = (labels % 2).to(device)  # 0=par, 1=impar
 
         # Train Discriminator
-        loss_disc = train_disc(discriminator, generator, real, criterion, optimizer_disc, z_dim, device)
+        loss_disc = train_disc(discriminator, generator, real, labels_par_impar,
+                               criterion, optimizer_disc, z_dim, device, target_class)
 
         # Train Generator
         total_loss_gen = 0
         for _ in range(n_gen_iterations):
-            loss_gen_iter = train_gen(generator, discriminator, real, criterion,
-                                      optimizer_gen, z_dim, device)
+            loss_gen_iter = train_gen(generator, discriminator, criterion,
+                                      optimizer_gen, z_dim, device, target_class)
             total_loss_gen += loss_gen_iter
 
         # Accumulate losses
@@ -348,7 +331,7 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch}: Loss_D {avg_loss_d}, Loss_G {avg_loss_g}")
 
     if (epoch + 1) % 5 == 0 or epoch == 0 or epoch == num_epochs - 1:
-        test_metrics = evaluate_gan(generator, discriminator, test_loader, criterion, fixed_noise, z_dim, epoch, device)
+        test_metrics = evaluate_gan(generator, discriminator, test_loader, criterion, fixed_noise, z_dim, epoch, device, target_class)
 
         eval_epochs.append(epoch)
         eval_losses_gen.append(test_metrics['loss_gen'])

@@ -7,8 +7,6 @@
 # - **P4**: Transfer Learning con MobileNet
 
 # %%
-import torch.nn as nn
-import os
 from PIL import Image
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -645,10 +643,156 @@ plt.show()
 # %% [markdown]
 # ## 3. Conclusiones
 
-# Los resultados muestran que para el problema de clasificación de dígitos pares e impares, el rendimiento del clasificador con una única capa oculta de 512 neuronas y la red convolucional pre-entrenada y finetuneada para la clasificación binaria son iguales. La diferencia en precisión de uno y otro modelo es de 0.01%, siendo el mayor la red densa, aunque teniendo ligeramente menor pérdida la CNN. 
+# Los resultados muestran que para el problema de clasificación de dígitos pares e impares, el rendimiento del clasificador con una única capa oculta de 512 neuronas y la red convolucional pre-entrenada y finetuneada para la clasificación binaria son iguales. La diferencia en precisión de uno y otro modelo es de 0.01%, siendo el mayor la red densa, aunque teniendo ligeramente menor pérdida la CNN.
 #
 # Las matrices de confusión muestran el mismo resultado, siendo prácticamente iguales.
 #
 # En este caso, nos podríamos haber ahorrado usar la red convolucional, más pesada, en favor de la red densa, ya que en términos de precisión no habría diferencia, y el entrenamiento es mucho más rápido.
 
+# %% [markdown]
+# # GAN Condicional: Generación de Números Pares
 
+# %% [markdown]
+# En este apartado utilizamos el **clasificador par/impar entrenado anteriormente** (CNN con transfer learning) como discriminador en una GAN. A diferencia de una GAN tradicional donde el discriminador distingue entre imágenes reales y falsas, aquí el discriminador **clasifica las imágenes como pares o impares**.
+#
+# Ambos modelos parten de pesos preentrenados:
+# - **Generador**: Inicializado con los pesos de la GAN tradicional de la Práctica 5
+# - **Discriminador**: Clasificador CNN par/impar ya entrenado en la sección anterior
+
+# %% [markdown]
+# ## 1. Pérdidas durante el entrenamiento
+
+# %%
+img_losses = Image.open('trabajo_images/gan_par_training_losses.png')
+plt.figure(figsize=(14, 7))
+plt.imshow(img_losses)
+plt.axis('off')
+plt.title('Evolución de las Pérdidas durante el Entrenamiento GAN Par/Impar',
+          fontsize=14, fontweight='bold', pad=15)
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 2. Imágenes generadas
+
+# %%
+img_generated = Image.open('trabajo_images/generated_images_gan_par.png')
+plt.figure(figsize=(14, 10))
+plt.imshow(img_generated)
+plt.axis('off')
+plt.title('Dígitos Generados por la GAN (Pares o Impares según target_class)',
+          fontsize=14, fontweight='bold', pad=15)
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 3. Conclusiones
+
+# A pesar de que nuestro objetivo era conseguir que el generador generase números pares, las imágenes generadas parecen representar un número central y otros a su alrededor
+# 
+# Como el discriminador no puede aprender de las imágenes generadas por el generador (ya que no tenemos ninguna manera de verificar si son números pares o impares), no puede contrarrestar 
+# las estrategias del generador, que en este caso ha conseguido realizar con éxito un ataque adversario, en el que ha encontrado una manera de generar imágenes que el discriminador confunde con números pares, a pesar de no serlo. Esto lo podemos ver en las curvas de pérdida, donde ambas convergen a 0.
+#
+# Da la impresión de que en todas las imágenes se puede encontrar un pequeño 4, que se genera de forma fortuita y consigue engañar al discriminador para que diga que es un número par, aunque el número que aparece en el centro de la imagen, más grande, no lo es.
+
+# %% [markdown]
+# # Comparación: Clasificación Par/Impar - Red Densa vs CNN vs Discriminador GAN
+
+# %% [markdown]
+# En este apartado comparamos **tres enfoques diferentes** para clasificar dígitos MNIST en pares e impares:
+# - **P2 - Red Densa Par/Impar**: Red neuronal simple (1 capa oculta, 512 neuronas)
+# - **P3 - CNN Par/Impar (Transfer Learning)**: CNN con capas convolucionales preentrenadas
+# - **P5 - Discriminador GAN**: Clasificador CNN entrenado adversarialmente en una GAN para distinguir pares de impares
+
+# %% [markdown]
+# ## 1. Comparación de resultados
+
+# %%
+
+gan_disc_accuracy = 99.12
+gan_disc_loss = 0.0496
+
+best_p2_par = df_p2_par.iloc[0]
+best_p3_par = df_p3_par_test.loc[df_p3_par_test['accuracy'].astype(float).idxmax()]
+
+fig, axes = plt.subplots(1, 3, figsize=(20, 6))
+
+models_comparison_3 = ['P2 - Red Densa\nPar/Impar', 'P3 - CNN\nPar/Impar (TL)', 'P5 - Discriminador\nGAN']
+colors_comparison_3 = ['#e74c3c', '#9b59b6', '#3498db']
+
+# Test Accuracy
+test_accs_3 = [98.90, best_p3_par['accuracy'], gan_disc_accuracy]
+bars1 = axes[0].bar(models_comparison_3, test_accs_3, color=colors_comparison_3,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[0].set_ylabel('Accuracy (%)', fontsize=13, fontweight='bold')
+axes[0].set_title('Test Accuracy', fontsize=14, fontweight='bold', pad=15)
+axes[0].set_ylim([97, 100])
+axes[0].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, acc in zip(bars1, test_accs_3):
+    axes[0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                    f'{acc:.2f}%', ha='center', va='bottom', fontsize=11, fontweight='bold')
+
+# Test Loss
+test_losses_3 = [0.0430, best_p3_par['loss'], gan_disc_loss]
+bars2 = axes[1].bar(models_comparison_3, test_losses_3, color=colors_comparison_3,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[1].set_ylabel('Loss', fontsize=13, fontweight='bold')
+axes[1].set_title('Test Loss', fontsize=14, fontweight='bold', pad=15)
+axes[1].set_ylim([0, 0.08])
+axes[1].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, loss in zip(bars2, test_losses_3):
+    axes[1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.002,
+                    f'{loss:.4f}', ha='center', va='bottom', fontsize=11, fontweight='bold')
+
+# Test Errors
+test_errors_3 = [110, int(10000 * (1 - best_p3_par['accuracy']/100)), int(10000 * (1 - gan_disc_accuracy/100))]
+bars3 = axes[2].bar(models_comparison_3, test_errors_3, color=colors_comparison_3,
+                    alpha=0.8, edgecolor='black', linewidth=1.5)
+axes[2].set_ylabel('Número de Errores', fontsize=13, fontweight='bold')
+axes[2].set_title('Errores en Test Set (de 10,000)', fontsize=14, fontweight='bold', pad=15)
+axes[2].set_ylim([0, 150])
+axes[2].grid(True, alpha=0.3, axis='y', linestyle='--')
+for bar, err in zip(bars3, test_errors_3):
+    axes[2].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3,
+                    f'{err}', ha='center', va='bottom', fontsize=11, fontweight='bold')
+
+plt.suptitle('Comparación: Red Densa vs CNN vs Discriminador GAN para Clasificación Par/Impar',
+             fontsize=15, fontweight='bold', y=1.02)
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 2. Matrices de Confusión
+
+# %%
+fig, axes = plt.subplots(1, 3, figsize=(22, 7))
+
+# Matriz de confusión P2_par - Red Densa
+img_p2_par = Image.open('trabajo_images/cm_test_p2_par.png')
+axes[0].imshow(img_p2_par)
+axes[0].axis('off')
+axes[0].set_title('P2 - Red Densa Par/Impar', fontsize=13, fontweight='bold', pad=10)
+
+# Matriz de confusión P3_par - CNN Transfer Learning
+img_p3_par = Image.open('trabajo_images/cm_test_p3_par.png')
+axes[1].imshow(img_p3_par)
+axes[1].axis('off')
+axes[1].set_title('P3 - CNN Par/Impar (Transfer Learning)', fontsize=13, fontweight='bold', pad=10)
+
+# Matriz de confusión P5 - Discriminador GAN
+img_gan_disc = Image.open('trabajo_images/cm_test_gan_par.png')
+axes[2].imshow(img_gan_disc)
+axes[2].axis('off')
+axes[2].set_title('P5 - Discriminador GAN', fontsize=13, fontweight='bold', pad=10)
+
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ## 3. Conclusiones
+
+# Como podemos observar, los resultados del modelo que hemos usado como discriminador son muy similares al modelo de CNN anterior, antes de ser discriminador de la GAN.
+#
+# Sin embargo, la precisión del modelo descriminador es ligeramente mayor, ya que durante el entrenamiento del generador, el discriminador se seguía entrenando sobre imágenes reales del dataset, etiqueteadas, y seguía aprendiendo a distinguir entre pares e impares.
+#
+# Lógicamente, al tener bastante más epocas de entrenamiento, la precisión es mayor.
