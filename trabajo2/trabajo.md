@@ -229,31 +229,28 @@ Para prevenir el sobreajuste y optimizar el uso de recursos computacionales, se 
 
 Para prevenir el problema de **gradientes explosivos** (exploding gradients), se aplica **gradient clipping** con un valor máximo de norma igual a 1.0. Esta técnica consiste en recortar la norma L2 de todos los gradientes acumulados antes de realizar la actualización de los parámetros, asegurando que ningún gradiente supere el umbral establecido.
 
+## 3.5 Focal Loss
+
+Para el Focal Loss, usaremos los valores de $\gamma=2.0$ y $\alpha=0.25$ recomendados por Lin et al. [[8]](#ref-8).
+
+## 3.6 Batch size
+
+Para el batch size, usaremos 64, que es el tamaño recomendado por Thomas et al. (2025).
+
 # 4. Resultados
 
 ## 4.1 Configuración Experimental: LSTM y BiLSTM
 
-En esta configuración, usaremos una o dos unidades LSTM/BiLSTM (stack), sobre la vista local o bien la vista global y estudiaremos todas las posibles combinaciones con las tres funciones de pérdida elegidas, BCE, WBCE y Focal Loss.
+De alguna manera, todos los experimentos usan tanto la vista global como la local en sus arquitecturas. Nosotros seguiremos la misma lógica. Basándonos en los experimentos de (Scannell, 2021), configuramos la arquitectura de la siguiente manera:
 
-Esta es la configuración más simple que podemos tener. En el estudio de Marques (2018), se utiliza un stack de 10 unidades LSTM para obtener los mejores resultados, y las arquitecturas híbridas utilizan dos ramas, usando tanto la vista global como la local como input. En este caso, usaremos una u otra.
+- Dos capas LSTM para la vista global, la primera con hidden_size 128 y la segunda con 64.
+- Una capa LSTM con hidden_size 64 para la vista local
+- La última salida de las capas LSTM se concatenan
+- Se pasa por una capa fully-connected con 64 neuronas y 0.2 de dropout
+- Se pasa por una capa fully-connected con 32 neuronas
+- Finalmente, la salida se pasa por una capa fully-connected con 1 neurona
 
-Los parámetros base se detallan a continuación. Estos han sido elegidos tras unas pruebas iniciales para que el LSTM base aprendiese y no se quedase estancado en la solución trivial.
-
-| Parámetro | Valor | Descripción |
-| :--- | :--- | :--- |
-| `BATCH_SIZE` | 64 | Tamaño del lote de entrenamiento |
-| `HIDDEN_SIZE` | 256 | Dimensión del estado oculto LSTM |
-| `DROPOUT` | 0.3 | Tasa de dropout (para stack LSTM) |
-| `LEARNING_RATE` | 0.001 | Tasa de aprendizaje inicial |
-| `PATIENCE` | 5 | Épocas sin mejora antes de parar |
-| `FOCAL_GAMMA` | 2.0 | Factor de enfoque (sólo Focal Loss) |
-| `FOCAL_ALPHA` | 0.25 | Factor de balanceo (sólo Focal Loss) |
-
-Los valores de los parámetros de Focal Loss son los recomendados por Lin et al. [[8]](#ref-8).
-
-Como optimizador, se optó por **AdamW**, que es una versión mejorada de **Adam**. En los trabajos anteriores, el utilizado es Adam.
-
-En nuestro caso, por simplicidad, hemos conectado únicamente la última salida del LSTM/BiLSTM a la red fully-connected para la clasificación. Sin embargo, los mejores resultados se obtienen cuando se conectan todas las salidas de cada capa LSTM/BiLSTM a la red fully-connected (Marques, 2018), o bien se utilizan dos LSTM, una para cada vista (Scannell, 2021).
+En esta configuración, usaremos tanto LSTMs como BiLSTMs, y estudiaremos las tres funciones de pérdida elegidas, BCE, WBCE y Focal Loss, con o sin muestreo estratificado.
 
 ## 4.2 LSTM y BiLSTM
 
