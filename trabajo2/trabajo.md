@@ -237,6 +237,10 @@ Para el Focal Loss, usaremos los valores de $\gamma=2.0$ y $\alpha=0.25$ recomen
 
 Para el batch size, usaremos 64, que es el tamaño recomendado por Thomas et al. (2025).
 
+## 3.7 Función de pérdida y salida del modelo
+
+Todas las configuraciones emplean la salida cruda del modelo en forma de **logits** (valores lineales sin activación sigmoide) como salida final de la última capa densa. Esta elección permite utilizar de manera numéricamente estable las tres funciones de pérdida consideradas —**Binary Cross-Entropy with Logits Loss**, **Weighted Binary Cross-Entropy with Logits** y **Focal Loss** (implementada sobre `binary_cross_entropy_with_logits`)—, combinando en una única operación la activación sigmoide y la entropía cruzada binaria. De este modo se evitan inestabilidades asociadas a probabilidades extremas cercanas a 0 o 1.
+
 # 4. Resultados
 
 ## 4.1 Configuración Experimental: LSTM y BiLSTM
