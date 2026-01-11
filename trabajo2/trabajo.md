@@ -136,8 +136,6 @@ La aplicación de *Deep Learning* a la detección de exoplanetas en curvas de lu
 
 Los resultados de Marques, a pesar de ser los mejores, solo aparecen publicados en Github, como trabajo fin de máster, no han sido peer-reviewed, y no se mencionan en trabajos posteriores. Lo más probable es que simplemente sean los resultados del mejor experimento y no promedios sobre múltiples. En el estudio de Thomas et al., se menciona estudios con transformers donde se obtiene un F1-score de 0.99, pero no se indica el estudio concreto, y el único que se parece a lo que describe es Salinas et al. (2023) [[12]](#ref-12), pero dista mucho del resultado mencionado.
 
-Por esta razón, tomaremos el estudio de Thomas et al., 2025 como estado del arte.
-
 *Thomas et al. entrena sobre DR24 y sus métricas son sobre ese dataset, aunque luego valida sus resultados también sobre DR25
 
 ## 1.6 Objetivos del estudio
@@ -219,7 +217,7 @@ Para el entrenamiento del modelo se emplea el optimizador **AdamW** con los hipe
 
 ## 3.3 Learning rate adaptativo
 
-Para optimizar la convergencia y evitar oscilaciones o estancamiento durante el entrenamiento, se implementa una estrategia de **learning rate adaptativo** mediante el scheduler **ReduceLROnPlateau**. El learning rate inicial se establece en $\alpha=10^{-4}$. El scheduler monitoriza la pérdida de validación y reduce el learning rate en un factor de 0.5 si no se observa mejora durante 5 épocas consecutivas. Se aplica un **cooldown** de 2 épocas después de cada reducción, durante las cuales el scheduler no realiza más ajustes, permitiendo al modelo estabilizarse tras el cambio. El learning rate mínimo se fija en $\alpha=10^{-6}$, evitando valores tan bajos que hagan prácticamente nula la actualización de los pesos.
+Para optimizar la convergencia y evitar oscilaciones o estancamiento durante el entrenamiento, se implementa una estrategia de **learning rate adaptativo** mediante el scheduler **ReduceLROnPlateau**. El learning rate inicial se establece en $\alpha=10^{-4}$ (para LSTM, BiLSTM y CNN-BiLSTM-Attention). El scheduler monitoriza la pérdida de validación y reduce el learning rate en un factor de 0.5 si no se observa mejora durante 5 épocas consecutivas. Se aplica un **cooldown** de 2 épocas después de cada reducción, durante las cuales el scheduler no realiza más ajustes, permitiendo al modelo estabilizarse tras el cambio. El learning rate mínimo se fija en $\alpha=10^{-6}$, evitando valores tan bajos que hagan prácticamente nula la actualización de los pesos.
 
 ## 3.4 Early stopping
 
@@ -233,15 +231,11 @@ Para prevenir el problema de **gradientes explosivos** (exploding gradients), se
 
 Para el Focal Loss, usaremos los valores de $\gamma=2.0$ y $\alpha=0.25$ recomendados por Lin et al. [[8]](#ref-8).
 
-## 3.6 Batch size
-
-Para el batch size, usaremos 64, que es el tamaño recomendado por Thomas et al. (2025).
-
-## 3.7 Función de pérdida y salida del modelo
+## 3.6 Función de pérdida
 
 Todas las configuraciones emplean la salida cruda del modelo en forma de **logits** (valores lineales sin activación sigmoide) como salida final de la última capa densa. Esta elección permite utilizar de manera numéricamente estable las tres funciones de pérdida consideradas —**Binary Cross-Entropy with Logits Loss**, **Weighted Binary Cross-Entropy with Logits** y **Focal Loss** (implementada sobre `binary_cross_entropy_with_logits`)—, combinando en una única operación la activación sigmoide y la entropía cruzada binaria. De este modo se evitan inestabilidades asociadas a probabilidades extremas cercanas a 0 o 1.
 
-### 3.7 Reproducibilidad y evaluación estadística
+### 3.7 Evaluación estadística
 
 Para garantizar la robustez de los resultados y cuantificar adecuadamente la variabilidad inherente al entrenamiento de estos modelos, se ejecutan **5 runs independientes** de cada configuración experimental, utilizando una semilla aleatoria diferente en cada una. Para cada métrica de interés se calcula la **media** y la **desviación estándar** sobre las 5 runs, reportando los resultados en formato mean ± std. Esta cantidad de repeticiones (5) representa un equilibrio entre rigor estadístico y viabilidad computacional.
 
@@ -251,88 +245,193 @@ Para garantizar la robustez de los resultados y cuantificar adecuadamente la var
 
 De alguna manera, todos los experimentos usan tanto la vista global como la local en sus arquitecturas. Nosotros seguiremos la misma lógica. Basándonos en los experimentos de (Scannell, 2021), configuramos la arquitectura de la siguiente manera:
 
-- Dos capas LSTM para la vista global, la primera con hidden_size 128 y la segunda con 64.
-- Una capa LSTM con hidden_size 64 para la vista local
-- La última salida de las capas LSTM se concatenan
-- Se pasa por una capa fully-connected con 64 neuronas y 0.2 de dropout
-- Se pasa por una capa fully-connected con 32 neuronas
-- Finalmente, la salida se pasa por una capa fully-connected con 1 neurona
+- Vista Global: 2 capas LSTM apiladas (128 → 64 hidden_size)
+- Vista Local: 1 capa LSTM (64 hidden_size)
+- Concatenación de hidden states finales
+- Capa densa(64) + Dropout(0.2) → Capa densa(32) → Output(1)
 
 En esta configuración, usaremos tanto LSTMs como BiLSTMs, y estudiaremos las tres funciones de pérdida elegidas, BCE, WBCE y Focal Loss, con o sin muestreo estratificado.
 
+Usaremos un batch size de 64.
+
 ## 4.2 LSTM y BiLSTM
 
-En los siguientes experimentos hemos variado los siguientes parámetros:
-
-- Arquitectura: LSTM vs BiLSTM
-- Número de capas: Simple vs Double (2 capas)
-- Vistas: Local vs Global
-- Función de pérdida: BCE vs WBCE vs Focal Loss
-
-Promediando los valores de las métricas más relevantes (nos abstenemos de comparar las accuracies, ya que no es la mejor métrica para un problema desbalanceado), obtenemos los siguientes resultados:
-
-Empezamos comparando el rendimiento de las arquitecturas simples y dobles (stacked):
-
-![simple_vs_double](./images/simple_vs_double.png)
-
-Podemos ver que las arquitecturas de dos LSTM/BiLSTM stacked obtienen ligeramente mejores resultados.
-
-![local_vs_global](./images/view_comp.png)
-
-Cuando comparamos estas arquitecturas usando la vista local y global, hay una clara diferencia. En este caso, la vista local es mucho más útil para las arquitecturas basadad en LSTM, debido a que están libres de ruido. Además, el tiempo de entrenamiento es mucho menor en las vistas locales ya que son únicamente 201 puntos, en comparación con los 2001 de la vista global.
-
-![lstm_vs_bilstm](./images/lstm_vs_bilstm.png)
-
-Con respecto a LSTM vs BiLSTM, no parece haber una diferencia significativa. Sin embargo, vemos que la arquitectura BiLSTM es ligeramente superior en AUC-RC, lo que nos indica que, encontrando el umbral de decisión correcto, la arquitectura BiLSTM sería capaz de distinguir mejor las clases
-
-![loss](./images/loss_comp.png)
-
-La comparación de las funciones de pérdida es interesante. Para el umbral de 0.5, la WBCE es la mejor opción, fijándonos en el F1-Score. Además, tiene un recall promedio muy bueno, mucho mejor que los otros. Aunque hay que tener en cuenta que los valores de recall de las otras funciones de pérdida están "lastrados" por varios experimentos donde el recall es 0 (el modelo colapsa a la solución trivial, donde predice siempre que no hay planeta).
-
-Igual que en el caso anterior, aunque el WBCE tenga el mayor F1-Score, en AUC-PR gana Focal Loss, aunque por muy poco con respecto a BCE.
+# TODO
 
 ## 4.3 Configuración experimental CNN
 
-Replicamos la arquitectura original de Shallue & Vanderburg, 2018, una CCN que combina la vista global con la local, de la siguiente manera
+Para estudiar el rendimiento de nuestras funciones de pérdida sobre redes convolucionales, tomamos la arquitectura de Scannell, 2021, que es una versión reducida de la arquitectura original de Shallue & Vanderburg, 2018, que sufre menos de overfitting. La configuración es la siguiente:
 
-![Shallue](./images/arq_cnn.png)
+Vista Local:
+    - 2x Conv1D(16 filtros, kernel=5) + MaxPool(5)
+    - 2x Conv1D(32 filtros, kernel=5) + MaxPool(5)
+    
+Vista Global:
+    - 2x Conv1D(16 filtros, kernel=5) + MaxPool(5)
+    - 2x Conv1D(32 filtros, kernel=5) + MaxPool(5)
+    - 2x Conv1D(64 filtros, kernel=5) + MaxPool(5)  [bloque adicional]
+    
+Conectamos concatenando entradas:
+    - 3x Capa densa(64) + Dropout(0.2)
+    - Capa densa(1)
 
-Los hiperparámetros usados son los siguientes, en un compromiso entre la velocidad de entrenamiento y la precisión. Mantenemos los valores de Focal Gamma y Focal Alpha.
-
-| Hiperparámetro | Valor |
-| :--- | :--- |
-| `BATCH_SIZE` | 256 |
-| `DROPOUT` | 0.0 |
-| `LEARNING_RATE` | $2 \times 10^{-4}$ |
-| `N_EPOCHS` | 100 |
-| `PATIENCE` | 5 |
-| `FOCAL_GAMMA` | 2.0 |
-| `FOCAL_ALPHA` | 0.25 |
+En este caso, usaremos un batch size de 128 y un learning rate inicial de 0.006, igual que Scannell, 2021.
 
 ## 4.4 CNN
 
-![CNN](./images/cnn_comp.png)
-
-Con respecto al F1-Score, usando WBCE, obtenemos una ligera mejora sobre los resultados de Shallue & Vanderburg, 2018, que utlilizaban BCE. Sin embargo, en términos de AUC-PR, no vemos diferencia significativa entre los tres métodos.
-
-Estos resultados estan promediados sobre 3 runs independientes.
+# TODO
 
 ## 4.5 Configuración experimental CNN-BiLSTM-Attention
 
-Replicamos la arquitectura de Thomas et al., 2025:
+Replicamos la arquitectura de Thomas et al., 2025. Aunque solo aparezca una rama, en realidad son dos, una para la vista global y otra para la local, que se concatenan tras las capas de atención, antes de la red FC.
 
-![thomas](./images/arq_thomas.png)
+```
+Input Light Curve Data
+         ↓
+    [batch_size, length]
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CNN FEATURE EXTRACTION                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Input: [batch_size, length] → [batch_size, length, 1] (expand dims)        │
+│                                                                             │
+│  Block 1: filters = 16                                                      │
+│  ├── Conv1D(kernel=5, filters=16, activation=ReLU, padding=same)            │
+│  ├── Conv1D(kernel=5, filters=16, activation=ReLU, padding=same)            │
+│  ├── Dropout(0.2) (if training)                                             │
+│  └── MaxPool1D(pool_size=5, strides=2)                                      │
+│                                                                             │
+│  Block 2: filters = 32                                                      │
+│  ├── Conv1D(kernel=5, filters=32, activation=ReLU, padding=same)            │
+│  ├── Conv1D(kernel=5, filters=32, activation=ReLU, padding=same)            │
+│  ├── Dropout(0.2) (if training)                                             │
+│  └── MaxPool1D(pool_size=5, strides=2)                                      │
+│                                                                             │
+│  Block 3: filters = 64                                                      │
+│  ├── Conv1D(kernel=5, filters=64, activation=ReLU, padding=same)            │
+│  ├── Conv1D(kernel=5, filters=64, activation=ReLU, padding=same)            │
+│  ├── Dropout(0.2) (if training)                                             │
+│  └── MaxPool1D(pool_size=5, strides=2)                                      │
+│                                                                             │
+│  Block 4: filters = 128                                                     │
+│  ├── Conv1D(kernel=5, filters=128, activation=ReLU, padding=same)           │
+│  ├── Conv1D(kernel=5, filters=128, activation=ReLU, padding=same)           │
+│  ├── Dropout(0.2) (if training)                                             │
+│  └── MaxPool1D(pool_size=5, strides=2)                                      │
+│                                                                             │
+│  Block 5: filters = 256                                                     │
+│  ├── Conv1D(kernel=5, filters=256, activation=ReLU, padding=same)           │
+│  ├── Conv1D(kernel=5, filters=256, activation=ReLU, padding=same)           │
+│  ├── Dropout(0.2) (if training)                                             │
+│  └── MaxPool1D(pool_size=5, strides=2)                                      │
+│                                                                             │
+│  Output: [batch_size, reduced_sequence_length, 256]                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        BIDIRECTIONAL LSTM LAYERS                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Input: [batch_size, sequence_length, 256]                                  │
+│                                                                             │
+│  BiLSTM Layer 1: 128 units                                                  │
+│  ├── Forward LSTM: 128 units                                                │
+│  ├── Backward LSTM: 128 units                                               │
+│  ├── Dropout: 0.3 (if training)                                             │
+│  ├── Recurrent Dropout: 0.2                                                 │
+│  └── Concatenate → [batch_size, sequence_length, 256]                       │
+│                                                                             │
+│  BiLSTM Layer 2: 128 units                                                  │
+│  ├── Forward LSTM: 128 units                                                │
+│  ├── Backward LSTM: 128 units                                               │
+│  ├── Dropout: 0.3 (if training)                                             │
+│  ├── Recurrent Dropout: 0.2                                                 │
+│  └── Concatenate → [batch_size, sequence_length, 256]                       │
+│                                                                             │
+│  Output: [batch_size, sequence_length, 256] (returns sequences)             │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          ATTENTION MECHANISM                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Input: [batch_size, sequence_length, 256]                                  │
+│                                                                             │
+│  Attention Score Computation:                                               │
+│  ├── Dense(1, activation=tanh) → [batch_size, sequence_length, 1]           │
+│  ├── Softmax(axis=1) → attention_weights [batch_size, sequence_length, 1]   │
+│  └── Weighted Sum → context_vector [batch_size, 256]                        │
+│                                                                             │
+│  Formula: context = Σ(attention_weights[i] * hidden_states[i])              │
+│                                                                             │
+│  Output: [batch_size, 256] (context vector)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    FEATURE CONCATENATION & PROCESSING                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Multiple Time Series Features (if any):                                    │
+│  ├── global_view: [batch_size, 256]                                         │
+│  ├── local_view: [batch_size, 256] (if configured)                          │
+│  └── Concatenate → [batch_size, total_features]                             │
+│                                                                             │
+│  Auxiliary Features (if any):                                               │
+│  ├── period, duration, etc.: [batch_size, aux_features]                     │
+│  └── Concatenate with time series features                                  │
+│                                                                             │
+│  Output: pre_logits_concat [batch_size, total_feature_size]                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      FULLY CONNECTED LAYERS                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Input: [batch_size, total_feature_size]                                    │
+│                                                                             │
+│  Pre-Logits Hidden Layers (4 layers):                                       │
+│  ├── Dense(1024, activation=ReLU)                                           │
+│  ├── Dropout(0.2) (if training)                                             │
+│  ├── Dense(1024, activation=ReLU)                                           │
+│  ├── Dropout(0.2) (if training)                                             │
+│  ├── Dense(1024, activation=ReLU)                                           │
+│  ├── Dropout(0.2) (if training)                                             │
+│  ├── Dense(1024, activation=ReLU)                                           │
+│  └── Dropout(0.2) (if training)                                             │
+│                                                                             │
+│  Output: [batch_size, 1024]                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         OUTPUT LAYER                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Logits Layer:                                                              │
+│  └── Dense(1) → [batch_size, 1] (raw logits)                                │
+│                                                                             │
+│  Predictions:                                                               │
+│  └── Sigmoid(logits) → [batch_size, 1] (probabilities 0-1)                  │
+│                                                                             │
+│  Loss (during training):                                                    │
+│  └── Binary Cross-Entropy with Label Smoothing                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+    Final Prediction
+   (Planet/Not Planet)
+```
 
-La lógica detrás de esta arquitectura es la siguiente. Las capas convolucionales extraen las características morfológicas locales de las curvas, como la forma y la profundidad de los tránsitos. Tras esto, la BiLSTM modela las dependencias secuenciales, permitiendo a la red reconocer patrones periódicos e información contextual alrededor de los tránsitos. Por último, la capa de atención señala las áreas más informativas de la curva de luz, incluyendo tránsito, ingreso y egreso. En este escenario, las capas de BiLSTM dominan, concentrando el 96.54% de los parámetros (750k). Thomas et al. [[7]](#ref-7)
+La lógica detrás de esta arquitectura es la siguiente. Las capas convolucionales extraen las características morfológicas locales de las curvas, como la forma y la profundidad de los tránsitos. Tras esto, la BiLSTM modela las dependencias secuenciales, permitiendo a la red reconocer patrones periódicos e información contextual alrededor de los tránsitos. Por último, la capa de atención señala las áreas más informativas de la curva de luz, incluyendo tránsito, ingreso y egreso. En este escenario, las capas de BiLSTM dominan, concentrando el 96.54% de los parámetros. Thomas et al. [[7]](#ref-7)
 
-Usaremos la siguiente configuración de entrenamiento e hiperparámetros que Thomas et al., 2025:
+Para el batch size, usaremos 64, igual que Thomas et al. (2025).
+
+## 4.6 CNN-BiLSTM-Attention
+
+# TODO
+
+## 4.7 Comparativa de arquitecturas
+
+# TODO
 
 # Trabajos futuros
 - Probar LSTM de Marques con Focal
 - Probar diferentes valores de Focal Alpha y Focal Gamma
 - Comparar los Max-F1-Scores
 - Probar comparativa loss sobre arquitectura híbrida CNN-LSTM
-- Significacion estadística
 
 # Referencias
 
