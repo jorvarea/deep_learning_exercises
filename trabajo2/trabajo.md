@@ -168,13 +168,13 @@ Para ello, se plantean los siguientes objetivos específicos:
 | **AUC-PR**    | Área bajo curva PR      | Evalúa la calidad del detector sobre la clase minoritaria (planetas) a través de todos los umbrales de decisión.                             |
 | **AUC-ROC**   | Área bajo curva ROC     | Capacidad global de separación entre clases. Métrica estándar para comparación histórica con otros papers.                                   |
 
-## 2. Preprocesamiento de datos y generación de vistas
+# 2. Preprocesamiento de datos y generación de vistas
 
 En este trabajo, partimos del pipeline de preprocesamiento establecido por Shallue & Vanderburg [[9]](#ref-9), que se ha convertido en el estándar _de facto_ para la clasificación de exoplanetas con _Deep Learning_.
 
 En lugar de procesar las curvas de luz crudas desde cero, utilizamos el dataset limpio proporcionado por el equipo de Google Research, que ofrece de forma pública los TFRecord con los que han entrenado. Ya vienen divididos en training, validación y test, con una división 80-10-10, que será la misma que usaremos. Este conjunto de datos aplica una secuencia rigurosa de transformaciones sobre las curvas de luz calibradas de la misión Kepler (catálogo DR24) para maximizar la relación señal-ruido de los tránsitos. La forma en la que se ha realizado este procesamiento es la siguiente.
 
-### 2.1 Secuencia de procesamiento
+## 2.1 Secuencia de procesamiento
 
 El pipeline de generación de datos, cuyas salidas utilizamos como entrada para nuestros modelos, consta de los siguientes pasos críticos:
 
@@ -200,7 +200,7 @@ El pipeline de generación de datos, cuyas salidas utilizamos como entrada para 
 
 El resultado final que ingesta nuestro modelo es un par de vectores `(global_view, local_view)` para cada Objeto de Interés (KOI/TCE), junto con su etiqueta binaria correspondiente.
 
-### 2.2 Ejemplo de vista Local y Global
+## 2.2 Ejemplo de vista Local y Global
 
 En la imagen de arriba, podemos ver un ejemplo de Planeta Confirmado, donde la luz de la estrella disminuye gradualmente conforme el planeta entra dentro del radio solar, se estabiliza en un mínimo mientras el planeta transita (teóricamente, el fondo debería ser plano ya que no varía la luz de la estrella en esta fase), y luego se recupera gradualmente $\rightarrow$ Forma de "U".
 
