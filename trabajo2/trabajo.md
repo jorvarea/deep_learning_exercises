@@ -450,6 +450,12 @@ Lo más notable de esta arquitectura es el fracaso absoluto que tiene la combina
 
 También es la única donde BCE con estratificación funciona mejor que sin ella.
 
+![cnn-bilstm-att-attn](./images/attention.png)
+
+Una de las cosas interesantes que tienen los mecanismos de atención, es que puedes fácilmente visualizar dónde se centra la atención del modelo. Tomando un ejemplo cualquiera del dataset, vemos que efectivamente, la atención del modelo se centra sobretodo en el tránsito, aunque solo en la vista global. En la local, considera que toda la curva es igual de importante, lo cual tiene sentido ya que es un "zoom" sobre el tránsito. Además, centra mucho más su atención en la vista local que en la global (67.2% vs 34.1% de la atención). Estas observaciones no son únicas de este ejemplo, sino que se repiten en otros ejemplos del dataset.
+
+Sin embargo, esto no parece ayudar mucho al modelo, ya que los resultados de la arquitectura CNN-BiLSTM-Attention no son los mejores. Lo más probable es que en este problema concreto, "no haya mucho más donde fijarse". Es decir, ya sabíamos desde el principio que lo importante era la zona del tránsito, y no hace falta un mecanismo de atención para darse cuenta de ello.
+
 ## 4.8 Comparativa de arquitecturas
 
 ![comparativa](./images/comp_arq.png)
@@ -472,11 +478,11 @@ Con respecto a estratificación vs no estratificación, lo que vemos es que comb
 
 # 6. Trabajo futuro
 
-- Probar LSTM de Marques con Focal
-- Probar diferentes valores de Focal Alpha y Focal Gamma
-- Comparar los Max-F1-Scores
-- Probar comparativa loss sobre arquitectura híbrida CNN-LSTM
-- Expandir trabajo en CNN
+Como posibles extensiones a este estudio, lo primero en lo que pensamos es probar diferentes valores de $\gamma$ para Focal Loss, y ver si podemos obtener mejores resultados, ajustándolo al ratio de clases concreto con el que estamos trabajando.
+
+También sería interesante aplicar Focal Loss a arquitecturas CNN-LSTM, o intentar obtener mejores resultados sobre la arquitectura CNN-BiLSTM-Attention. 
+
+Sin embargo, la línea de trabajo más interesante es la de las redes CNN sin nada más, ya que parece que dan los mejores resultados y son muy rápidas de entrenar, así que se pueden probar muchas configuraciones distintas.
 
 # Referencias
 
