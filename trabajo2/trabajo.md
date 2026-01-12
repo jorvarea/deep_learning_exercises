@@ -119,9 +119,9 @@ Esta propiedad hace de _Focal Loss_ una candidata ideal para la detección de ex
 
 Una estrategia complementaria (y en algunos casos alternativa) al uso de funciones de pérdida ponderadas consiste en modificar la forma en que se seleccionan las muestras durante el entrenamiento mediante **muestreo estratificado** (stratified sampling).
 
-En lugar de alterar los valores de la pérdida, esta técnica actúa directamente sobre la composición de los batches: obliga al modelo a ver una proporción más equilibrada de ejemplos de ambas clases en cada actualización de gradientes.
+En lugar de alterar los valores de la pérdida, esta técnica actúa directamente sobre la composición de los batches: obliga al modelo a ver una proporción más equilibrada de ejemplos de ambas clases en cada actualización de gradientes. En nuestro caso, esa proporción será del 50% en cada batch, repitiendo ejemplos de la clase minoritaria.
 
-En la práctica, el muestreo estratificado **no sustituye completamente** a las funciones de pérdida ponderadas o focal, sino que las **complementa** de manera muy efectiva. Trabajos recientes como Thomas et al., 2025, combinan ambas estrategias (muestreo balanceado + WBCE) para obtener mejores resultados.
+En la práctica, el muestreo estratificado **no sustituye completamente** a las funciones de pérdida ponderadas o focal, sino que las **complementa**. Trabajos recientes como Thomas et al., 2025, combinan ambas estrategias (muestreo balanceado + WBCE) para obtener mejores resultados.
 
 En nuestros experimentos se evaluarán sistemáticamente las configuraciones con y sin muestreo estratificado, permitiendo cuantificar su contribución relativa frente a las diferentes funciones de pérdida consideradas.
 
@@ -145,7 +145,7 @@ Los resultados de Marques, a pesar de ser los mejores, solo aparecen publicados 
 
 ## 1.6 Objetivos del estudio
 
-Este estudio tiene como objetivo principal evaluar si el uso de **Focal Loss** mejora significativamente la capacidad de detección de exoplanetas en el contexto del fuerte desbalance de clases del catálogo Kepler DR24, comparándolo con la función de pérdida estándar (_Weighted Binary Cross-Entropy_). Utilizaremos el catálogo DR24 para poder comparar nuestros resultados con estudios anteriores.
+Este estudio tiene como objetivo principal evaluar si el uso de **Focal Loss** mejora significativamente la capacidad de detección de exoplanetas en el contexto del fuerte desbalance de clases del catálogo Kepler DR24. Utilizaremos este catálogo para poder comparar nuestros resultados con estudios anteriores.
 
 Para ello, se plantean los siguientes objetivos específicos:
 
@@ -240,7 +240,7 @@ Para el Focal Loss, usaremos los valores de $\gamma=2.0$ y $\alpha=0.25$ recomen
 
 Todas las configuraciones emplean la salida cruda del modelo en forma de **logits** (valores lineales sin activación sigmoide) como salida final de la última capa densa. Esta elección permite utilizar de manera numéricamente estable las tres funciones de pérdida consideradas —**Binary Cross-Entropy with Logits Loss**, **Weighted Binary Cross-Entropy with Logits** y **Focal Loss** (implementada sobre `binary_cross_entropy_with_logits`)—, combinando en una única operación la activación sigmoide y la entropía cruzada binaria. De este modo se evitan inestabilidades asociadas a probabilidades extremas cercanas a 0 o 1.
 
-### 3.7 Evaluación estadística
+## 3.7 Evaluación estadística
 
 Para garantizar la robustez de los resultados y cuantificar adecuadamente la variabilidad inherente al entrenamiento de estos modelos, se ejecutan **5 runs independientes** de cada configuración experimental, utilizando una semilla aleatoria diferente en cada una. Para cada métrica de interés se calcula la **media** y la **desviación estándar** sobre las 5 runs, reportando los resultados en formato mean ± std. Esta cantidad de repeticiones (5) representa un equilibrio entre rigor estadístico y viabilidad computacional.
 
