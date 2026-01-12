@@ -129,12 +129,13 @@ La aplicación de *Deep Learning* a la detección de exoplanetas en curvas de lu
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Shallue & Vanderburg (2018)** [[9]](#ref-9) | DR24 | CNN (Global + Local) | 0.960 | - | - | 0.879 | 0.988 |
 | **Marques (2018)** [[10]](#ref-10) | DR24 | CNN / LSTM | 0.935 / 0.934 | 0.938 / 0.936 | 0.935 / 0.934 | 0.936 / 0.935 | 0.965 |
-| **Scannell (2021)** [[11]](#ref-11) | DR24 | LSTM (Best Model) | 0.920 | 0.790 | 0.870 | 0.828 | 0.970 |
-| **Scannell (2021)** [[11]](#ref-11) | DR24 | CCN-LSTM (Hybrid) | 0.950 | 0.900 | 0.910 | 0.900 | 0.980 |
+| **Scannell (2021)** [[11]](#ref-11) | DR24 | CNN | 0.96 | 0.91 | 0.93 | 0.929 | 0.990 |
+| **Scannell (2021)** [[11]](#ref-11) | DR24 | LSTM | 0.920 | 0.790 | 0.870 | 0.828 | 0.970 |
+| **Scannell (2021)** [[11]](#ref-11) | DR24 | CCN-LSTM | 0.950 | 0.900 | 0.910 | 0.900 | 0.980 |
 | **Salinas et al. (2023)** [[12]](#ref-12) | TESS | Transformer | - | 0.880 | 0.880 | 0.880 | - |
 | **Thomas et al. (2025)** [[7]](#ref-7) | DR24 y DR25* | CNN-BiLSTM-Attn | 0.957 | 0.893 | 0.928 | 0.910 | 0.984 |
 
-Los resultados de Marques, a pesar de ser los mejores, solo aparecen publicados en Github, como trabajo fin de máster, no han sido peer-reviewed, y no se mencionan en trabajos posteriores. Lo más probable es que simplemente sean los resultados del mejor experimento y no promedios sobre múltiples. En el estudio de Thomas et al., se menciona estudios con transformers donde se obtiene un F1-score de 0.99, pero no se indica el estudio concreto, y el único que se parece a lo que describe es Salinas et al. (2023) [[12]](#ref-12), pero dista mucho del resultado mencionado.
+Los resultados de Marques, a pesar de ser los mejores, solo aparecen publicados en Github y no se mencionan en trabajos posteriores. Lo más probable es que simplemente sean los resultados del mejor experimento y no promedios sobre múltiples. En el estudio de Thomas et al., se menciona estudios con transformers donde se obtiene un F1-score de 0.99, pero no se indica el estudio concreto, y el único que se parece a lo que describe es Salinas et al. (2023) [[12]](#ref-12), pero dista mucho del resultado mencionado.
 
 *Thomas et al. entrena sobre DR24 y sus métricas son sobre ese dataset, aunque luego valida sus resultados también sobre DR25
 
@@ -243,7 +244,7 @@ Para garantizar la robustez de los resultados y cuantificar adecuadamente la var
 
 ## 4.1 Configuración Experimental: LSTM y BiLSTM
 
-De alguna manera, todos los experimentos usan tanto la vista global como la local en sus arquitecturas. Nosotros seguiremos la misma lógica. Basándonos en los experimentos de (Scannell, 2021), configuramos la arquitectura de la siguiente manera:
+De alguna manera, todos los experimentos usan tanto la vista global como la local en sus arquitecturas. Nosotros seguiremos la misma lógica. Basándonos en los experimentos de Scannell, 2021, configuramos la arquitectura de la siguiente manera:
 
 - Vista Global: 2 capas LSTM apiladas (128 → 64 hidden_size)
 - Vista Local: 1 capa LSTM (64 hidden_size)
@@ -254,11 +255,23 @@ En esta configuración, usaremos tanto LSTMs como BiLSTMs, y estudiaremos las tr
 
 Usaremos un batch size de 64.
 
-## 4.2 LSTM y BiLSTM
+## 4.2 LSTM
 
-# TODO
+Empezamos comparando los resultados de las redes LSTM.
 
-## 4.3 Configuración experimental CNN
+![lstm](./images/lstm.png)
+
+Lo primero que notamos es una clara diferencia entre cómo se comportan los modelos usando WBCE vs Focal Loss. Cuando usamos Focal Loss, los modelos tienden a ser muy precisos (precision) a costa de una menor sensibilidad (recall). Usando WBCE, pasa al contrario, alta sensibilidad y baja precisión. En términos de F1-Score, que es la métrica principal que usaremos para comparar los modelos, ya que es la más interesante en un problema de clases desbalanceadas, el mejor resultado lo obtenemos usando WBCE sin estratificación, con un F1-Score de 83.6±1.2.
+
+Comparando usar estratificación vs no usarla, vemos resultados mixtos. Si usamos BCE o WBCE, la estratificación empeora los resultados, mientras que usando Focal Loss, los mejora.
+
+## 4.3 BiLSTM
+
+![bilstm](./images/bilstm.png)
+
+En redes BiLSTM, se sigue cumpliendo lo anterior respecto a las funciones de pérdida, Focal Loss tiene alta precisión y baja sensibilidad, mientras que WBCE tiene alta sensibilidad y baja precisión. Pero en este caso, en F1-Score los resultados se invierten. Focal Loss supera a WBCE en F1-Score. Sin embargo, el mejor resultado lo obtiene BCE sin estratificación, con un F1-Score de 85.9±1.4, que al igual que WBCE, obtiene mejor sensibilidad que precisión. Este resultado es superior al de las LSTM, confirmando que ver la curva en ambas direcciones ayuda a mejorar el rendimiento del modelo, aunque el tiempo de entrenamiento es más del doble, como veremos más adelante.
+
+## 4.4 Configuración experimental CNN
 
 Para estudiar el rendimiento de nuestras funciones de pérdida sobre redes convolucionales, tomamos la arquitectura de Scannell, 2021, que es una versión reducida de la arquitectura original de Shallue & Vanderburg, 2018, que sufre menos de overfitting. La configuración es la siguiente:
 
@@ -275,13 +288,23 @@ Conectamos concatenando entradas:
     - 3x Capa densa(64) + Dropout(0.2)
     - Capa densa(1)
 
-En este caso, usaremos un batch size de 128 y un learning rate inicial de 0.006, igual que Scannell, 2021.
+En este caso, usaremos un batch size de 128 y un learning rate inicial de 0.006, igual que Scannell, 2021 en su mejor configuración.
 
-## 4.4 CNN
+## 4.5 CNN
 
-# TODO
+![cnn](./images/cnn.png)
 
-## 4.5 Configuración experimental CNN-BiLSTM-Attention
+En redes convolucionales, obtenemos los mejores resultados de todos nuestros experimentos, siendo la configuración ganadora la de BCE sin estratificación, con un F1-Score de 91.2±0.7, muy similar a los resultados de Scannell, 2021, usando su misma arquitectura.
+
+Combinación | F1-Score | Accuracy | Precision | Recall | AUC-PR | AUC-ROC |
+|:------------|:--------:|:--------:|:---------:|:------:|:------:|:-------:|
+BCE + No Stratified | 91.2±0.7 | 95.9±0.3 | 89.0±1.0 | 93.4±1.4 | 92.8 | 98.5 |
+
+Además, no solo es la configuración ganadora, sino que también ha sido extremadamente rápida de entrenar (como se puede ver más abajo).
+
+En este caso, tanto Focal Loss como WBCE, el primero usando estratificación y el segundo sin ella, obtienen resultados prácticamente iguales.
+
+## 4.6 Configuración experimental CNN-BiLSTM-Attention
 
 Replicamos la arquitectura de Thomas et al., 2025. Aunque solo aparezca una rama, en realidad son dos, una para la vista global y otra para la local, que se concatenan tras las capas de atención, antes de la red FC.
 
@@ -419,19 +442,41 @@ La lógica detrás de esta arquitectura es la siguiente. Las capas convolucional
 
 Para el batch size, usaremos 64, igual que Thomas et al. (2025).
 
-## 4.6 CNN-BiLSTM-Attention
+## 4.7 CNN-BiLSTM-Attention
 
-# TODO
+![cnn-bilstm-att](./images/cnn-bilstm-attention.png)
 
-## 4.7 Comparativa de arquitecturas
+Lo más notable de esta arquitectura es el fracaso absoluto que tiene la combinación con Focal Loss, muy por debajo de cualquier otra combinación en este estudio. Aquí, la mejor combinación es WBCE sin estratificación, con un F1-Score de 86.2±3.8, similar a los resultados de las BiLSTM. Sin embargo, a diferencia de estas últimas, los resultados tienen mucha varianza, siendo la arquitectura con los resultados más dispersos.
 
-# TODO
+También es la única donde BCE con estratificación funciona mejor que sin ella.
 
-# Trabajos futuros
+## 4.8 Comparativa de arquitecturas
+
+![comparativa](./images/comp_arq.png)
+
+Como comentamos antes, los mejores resultados se obtienen ed redes convolucionales, seguidas de BiLSTM y LSTM (mirando la media de F1-Score). La arquitectura CNN-BiLSTM-Attention tiene el segundo mejor resultado individual, pero en general los resultados son inconsistentes y varían mucho entre runs. 
+
+En términos de tiempo de entrenamiento, las redes convolucionales 10 veces más rápidas que LSTM, 40 veces más rápidas que BiLSTM y 7 veces más rápidas que CNN-BiLSTM-Attention.
+
+# 5. Conclusiones
+
+Con respecto al objetivo inicial del estudio, que era evaluar si el uso de Focal Loss mejora los resultados en este problema concreto de clases desbalanceadas, la respuesta es no. Para ninguna de las arquitecturas estudiadas ha obtenido los mejores resultados. 
+
+De hecho, el mejor de los resultados no utiliza ninguna técnica para balancear las clases. Esto puede deberse a varias razones. En el estudio original donde se propone Focal Loss, el desbalance de clases era mucho más extremo (1:1000) que el nuestro (1:3.37) y el valor de $\gamma$ que hemos usado, basado en el paper original, hace que la penalización por fallar un ejemplo de la clase minoritaria sea 100 veces mayor. Lo más probable es que ese valor haya que ajustarlo para el desbalance concreto con el que estemos trabajando.
+
+Además, el mejor resultado ni siquiera requiere de estratificación, lo que se puede interpretar como que el ratio de clases no es tan extremo como para que siquiera sea necesario usar una técnica de balanceo.
+
+Un aspecto positivo es que hemos podido replicar los resultados de Scannell, 2021, usando su misma arquitectura, sobre LSTMs, y que, con esa misma arquitectura, si intercambiamos los LSTM por BiLSTM, obtenemos una mejora del 2.3%. También hemos replicado prácticamente los resultados que obtenía Scannell, 2021 con CNN, aunque no los de Thomas et al., 2025, que son un 5% mejores que los que hemos obtenido nosotros.
+
+Con respecto a estratificación vs no estratificación, lo que vemos es que combinada con BCE o WBCE, suele empeorar los resultados, mientras que usando Focal Loss, suele mejorarlos, al menos en este problema concreto.
+
+# 6. Trabajo futuro
+
 - Probar LSTM de Marques con Focal
 - Probar diferentes valores de Focal Alpha y Focal Gamma
 - Comparar los Max-F1-Scores
 - Probar comparativa loss sobre arquitectura híbrida CNN-LSTM
+- Expandir trabajo en CNN
 
 # Referencias
 
@@ -474,8 +519,48 @@ Para el batch size, usaremos 64, igual que Thomas et al. (2025).
 <a id="ref-13"></a>
 **[13]** He, K., Zhang, X., Ren, S., & Sun, J. (2015). Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification. *Proceedings of the IEEE International Conference on Computer Vision (ICCV)*, 1026–1034. [arXiv:1502.01852](https://arxiv.org/abs/1502.01852) [DOI:10.1109/ICCV.2015.123](https://doi.org/10.1109/ICCV.2015.123)
 
-# Anexo
+# Anexo: Todos los resultados
 
-A continuación, podemos ver una gráfica comparativa de todos los experimentos:
+### 🏆 RANKING LSTM (ordenado por F1-Score)
 
-![all](./images/lstm_all.png)
+| Pos | Combinación | F1-Score | Accuracy | Precision | Recall | AUC-PR | AUC-ROC |
+|:---:|:------------|:--------:|:--------:|:---------:|:------:|:------:|:-------:|
+| 🥇 | WBCE + No Stratified | 83.6±1.2 | 91.7±0.7 | 76.3±2.0 | 92.5±1.0 | 90.4 | 97.4 |
+| 🥈 | BCE + No Stratified | 82.9±0.9 | 92.2±0.4 | 82.6±1.1 | 83.3±1.4 | 89.0 | 96.7 |
+| 🥉 | Focal + Stratified | 82.9±1.0 | 92.0±0.3 | 81.4±2.3 | 84.8±3.9 | 89.5 | 96.9 |
+| 4. | Focal + No Stratified | 80.9±1.3 | 92.0±0.5 | 89.4±0.7 | 73.9±1.9 | 88.9 | 96.9 |
+| 5. | BCE + Stratified | 80.5±1.5 | 89.8±1.0 | 71.8±2.8 | 91.8±1.3 | 86.6 | 96.4 |
+| 6. | WBCE + Stratified | 77.3±1.2 | 87.0±0.8 | 64.4±1.6 | 96.6±0.8 | 88.0 | 96.8 |
+
+### 🏆 RANKING BILSTM (ordenado por F1-Score)
+
+| Pos | Combinación | F1-Score | Accuracy | Precision | Recall | AUC-PR | AUC-ROC |
+|:---:|:------------|:--------:|:--------:|:---------:|:------:|:------:|:-------:|
+| 🥇 | BCE + No Stratified | 85.9±1.4 | 93.5±0.6 | 84.9±1.0 | 87.0±2.3 | 91.7 | 97.6 |
+| 🥈 | Focal + Stratified | 85.2±0.7 | 93.1±0.4 | 83.4±1.6 | 87.0±1.9 | 90.4 | 97.4 |
+| 🥉 | WBCE + No Stratified | 82.3±1.1 | 90.9±0.7 | 74.2±1.8 | 92.4±1.1 | 90.6 | 97.1 |
+| 4. | Focal + No Stratified | 82.3±0.8 | 92.6±0.3 | 90.3±0.7 | 75.6±1.0 | 92.0 | 97.6 |
+| 5. | BCE + Stratified | 81.7±1.3 | 90.4±0.9 | 72.5±2.5 | 93.6±1.7 | 90.0 | 97.1 |
+| 6. | WBCE + Stratified | 76.5±2.6 | 86.2±2.0 | 62.8±3.4 | 98.0±0.3 | 89.6 | 97.3 |
+
+### 🏆 RANKING CNN (ordenado por F1-Score)
+
+| Pos | Combinación | F1-Score | Accuracy | Precision | Recall | AUC-PR | AUC-ROC |
+|:---:|:------------|:--------:|:--------:|:---------:|:------:|:------:|:-------:|
+| 🥇 | BCE + No Stratified | 91.2±0.7 | 95.9±0.3 | 89.0±1.0 | 93.4±1.4 | 92.8 | 98.5 |
+| 🥈 | WBCE + No Stratified | 90.6±0.5 | 95.5±0.3 | 85.6±0.7 | 96.4±0.6 | 92.9 | 98.6 |
+| 🥉 | Focal + Stratified | 90.6±0.7 | 95.6±0.3 | 87.8±1.0 | 93.7±1.6 | 93.0 | 98.5 |
+| 4. | BCE + Stratified | 89.5±0.8 | 94.9±0.4 | 84.0±1.5 | 95.8±0.8 | 93.8 | 98.6 |
+| 5. | WBCE + Stratified | 89.2±1.5 | 94.6±0.8 | 82.4±2.8 | 97.2±0.5 | 93.2 | 98.6 |
+| 6. | Focal + No Stratified | 87.7±1.7 | 94.6±0.6 | 91.8±1.1 | 84.1±3.9 | 92.4 | 98.4 |
+
+### 🏆 RANKING CNN-BILSTM-ATT (ordenado por F1-Score)
+
+| Pos | Combinación | F1-Score | Accuracy | Precision | Recall | AUC-PR | AUC-ROC |
+|:---:|:------------|:--------:|:--------:|:---------:|:------:|:------:|:-------:|
+| 🥇 | WBCE + No Stratified | 86.2±3.8 | 94.1±1.3 | 91.4±1.6 | 81.9±7.1 | 91.8 | 98.3 |
+| 🥈 | WBCE + Stratified | 85.7±2.7 | 93.2±1.2 | 82.3±3.4 | 89.8±6.3 | 89.9 | 97.7 |
+| 🥉 | BCE + Stratified | 84.8±4.7 | 93.4±1.7 | 89.2±1.4 | 81.2±8.0 | 90.1 | 97.7 |
+| 4. | BCE + No Stratified | 80.7±4.8 | 92.2±1.6 | 92.4±1.0 | 72.1±7.9 | 91.0 | 98.1 |
+| 5. | Focal + Stratified | 74.7±5.1 | 90.3±1.5 | 92.1±1.2 | 63.2±7.0 | 89.0 | 97.5 |
+| 6. | Focal + No Stratified | 55.8±13.1 | 86.0±2.9 | 94.7±1.0 | 40.9±13.7 | 90.4 | 97.9 |
