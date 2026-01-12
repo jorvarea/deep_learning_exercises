@@ -265,7 +265,7 @@ Empezamos comparando los resultados de las redes LSTM.
 
 ![lstm](./images/lstm.png)
 
-Lo primero que notamos es una clara diferencia entre cómo se comportan los modelos usando WBCE vs Focal Loss. Cuando usamos Focal Loss, los modelos tienden a ser muy precisos (precision) a costa de una menor sensibilidad (recall). Usando WBCE, pasa al contrario, alta sensibilidad y baja precisión. En términos de F1-Score, que es la métrica principal que usaremos para comparar los modelos, ya que es la más interesante en un problema de clases desbalanceadas, el mejor resultado lo obtenemos usando WBCE sin estratificación, con un F1-Score de 83.6±1.2.
+Lo primero que notamos es una diferencia entre cómo se comportan los modelos usando WBCE vs Focal Loss. Cuando usamos Focal Loss para el caso no estratificado, los modelos tienden a ser más precisos (precision) a costa de una menor sensibilidad (recall). Usando WBCE, pasa al contrario, alta sensibilidad y baja precisión. En términos de F1-Score, que es la métrica principal que usaremos para comparar los modelos, ya que es la más interesante en un problema de clases desbalanceadas, el mejor resultado lo obtenemos usando WBCE sin estratificación, con un F1-Score de 83.6±1.2.
 
 Comparando usar estratificación vs no usarla, vemos resultados mixtos. Si usamos BCE o WBCE, la estratificación empeora los resultados, mientras que usando Focal Loss, los mejora.
 
@@ -273,17 +273,27 @@ Comparando usar estratificación vs no usarla, vemos resultados mixtos. Si usamo
 
 ![bilstm](./images/bilstm.png)
 
-En redes BiLSTM, se sigue cumpliendo lo anterior respecto a las funciones de pérdida, Focal Loss tiene alta precisión y baja sensibilidad, mientras que WBCE tiene alta sensibilidad y baja precisión. Pero en este caso, en F1-Score los resultados se invierten. Focal Loss supera a WBCE en F1-Score. Sin embargo, el mejor resultado lo obtiene BCE sin estratificación, con un F1-Score de 85.9±1.4, que al igual que WBCE, obtiene mejor sensibilidad que precisión. Este resultado es superior al de las LSTM, confirmando que ver la curva en ambas direcciones ayuda a mejorar el rendimiento del modelo, aunque el tiempo de entrenamiento es más del doble, como veremos más adelante.
+En redes BiLSTM, se sigue cumpliendo lo anterior respecto a las funciones de pérdida, Focal Loss tiene alta precisión y baja sensibilidad, mientras que WBCE tiene alta sensibilidad y baja precisión. Pero en este caso, en F1-Score los resultados se invierten. Focal Loss supera a WBCE en F1-Score. Sin embargo, el mejor resultado lo obtiene BCE sin estratificación, con un F1-Score de 85.9±1.4. Este resultado es superior al de las LSTM, confirmando que ver la curva en ambas direcciones ayuda a mejorar el rendimiento del modelo, aunque el tiempo de entrenamiento es más del doble, como veremos más adelante.
 
 ## 4.4 Configuración experimental CNN
 
 Para estudiar el rendimiento de nuestras funciones de pérdida sobre redes convolucionales, tomamos la arquitectura de Scannell, 2021, que es una versión reducida de la arquitectura original de Shallue & Vanderburg, 2018, que sufre menos de overfitting. La configuración es la siguiente:
 
-Vista Local: - 2x Conv1D(16 filtros, kernel=5) + MaxPool(5) - 2x Conv1D(32 filtros, kernel=5) + MaxPool(5)
+Vista Local:
 
-Vista Global: - 2x Conv1D(16 filtros, kernel=5) + MaxPool(5) - 2x Conv1D(32 filtros, kernel=5) + MaxPool(5) - 2x Conv1D(64 filtros, kernel=5) + MaxPool(5) [bloque adicional]
+- 2x Conv1D(16 filtros, kernel=5) + MaxPool(5)
+- 2x Conv1D(32 filtros, kernel=5) + MaxPool(5)
 
-Conectamos concatenando entradas: - 3x Capa densa(64) + Dropout(0.2) - Capa densa(1)
+Vista Global:
+
+- 2x Conv1D(16 filtros, kernel=5) + MaxPool(5)
+- 2x Conv1D(32 filtros, kernel=5) + MaxPool(5)
+- 2x Conv1D(64 filtros, kernel=5) + MaxPool(5) [bloque adicional]
+
+Conectamos concatenando entradas:
+
+- 3x Capa densa(64) + Dropout(0.2)
+- Capa densa(1)
 
 En este caso, usaremos un batch size de 128 y un learning rate inicial de 0.006, igual que Scannell, 2021 en su mejor configuración.
 
@@ -315,7 +325,7 @@ Para el batch size, usaremos 64, igual que Thomas et al. (2025).
 
 Lo más notable de esta arquitectura es el fracaso absoluto que tiene la combinación con Focal Loss, muy por debajo de cualquier otra combinación en este estudio. Aquí, la mejor combinación es WBCE sin estratificación, con un F1-Score de 86.2±3.8, similar a los resultados de las BiLSTM. Sin embargo, a diferencia de estas últimas, los resultados tienen mucha varianza, siendo la arquitectura con los resultados más dispersos.
 
-También es la única donde BCE con estratificación funciona mejor que sin ella.
+También es la única donde BCE con estratificación funciona mejor que sin ella (F1-Score).
 
 ![cnn-bilstm-att-attn](./images/attention.png)
 
@@ -327,9 +337,9 @@ Sin embargo, esto no parece ayudar mucho al modelo, ya que los resultados de la 
 
 ![comparativa](./images/comp_arq.png)
 
-Como comentamos antes, los mejores resultados se obtienen ed redes convolucionales, seguidas de BiLSTM y LSTM (mirando la media de F1-Score). La arquitectura CNN-BiLSTM-Attention tiene el segundo mejor resultado individual, pero en general los resultados son inconsistentes y varían mucho entre runs.
+Como comentamos antes, los mejores resultados se obtienen en redes convolucionales, seguidas de BiLSTM y LSTM (mirando la media de F1-Score). La arquitectura CNN-BiLSTM-Attention tiene el segundo mejor resultado individual, pero en general los resultados son inconsistentes y varían mucho entre runs.
 
-En términos de tiempo de entrenamiento, las redes convolucionales 10 veces más rápidas que LSTM, 40 veces más rápidas que BiLSTM y 7 veces más rápidas que CNN-BiLSTM-Attention.
+En términos de tiempo de entrenamiento, las redes convolucionales son aproximadamente 10 veces más rápidas que LSTM, 40 veces más rápidas que BiLSTM y 7 veces más rápidas que CNN-BiLSTM-Attention.
 
 # 5. Conclusiones
 
